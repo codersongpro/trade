@@ -6,6 +6,9 @@
 > **지금도 게임은 완전히 작동합니다.** 현재는 이모지와 CSS만으로 화면을 그리고 있어요.
 > 여기 있는 그림들은 전부 **없어도 되는 추가 장식**이고, 하나씩 넣을 때마다 화면이 좋아집니다.
 > 우선순위 A부터 만드시면 효과가 가장 큽니다.
+>
+> C 카테고리(자원 아이콘·국가 문장)는 개수가 많아 이 문서에는 **일부 예시만** 있습니다.
+> 빠진 나머지는 **[ASSETS-MISSING.md](ASSETS-MISSING.md)** 에 모아 뒀습니다.
 
 ---
 
@@ -14,7 +17,7 @@
 - [공통 스타일 프롬프트](#공통-스타일-프롬프트) ← **모든 프롬프트 앞에 붙이세요**
 - [A. 꼭 필요한 것](#a-꼭-필요한-것)
 - [B. 있으면 좋은 것](#b-있으면-좋은-것)
-- [C. 여유가 되면](#c-여유가-되면)
+- [C. 여유가 되면](#c-여유가-되면) → 빠진 항목은 [ASSETS-MISSING.md](ASSETS-MISSING.md)
 - [만든 뒤 할 일](#만든-뒤-할-일)
 
 ---
@@ -352,8 +355,11 @@ Consistent size and visual weight across all nine. No text, no labels.
 | 묶음 | 프롬프트에 넣을 목록 |
 |---|---|
 | 과일·채소 | `a tangerine, an apple, a Korean melon, a strawberry, a grape bunch, a potato, a napa cabbage, a garlic bulb, a red chili pepper` |
-| 축산·수산 | `a cow, a milk bottle, a fish, an abalone shell, a ginseng root, a green tea leaf, a rice sack, a cheese wedge, an egg` |
+| 축산·수산 | `a cow, a milk bottle, a fish, an abalone shell, a ginseng root, a green tea leaf, a rice sack, a cheese wedge` (8개) |
 | 가공식품 | `a kimchi jar, a juice carton, a jam jar, a rice cake skewer, a traditional Korean liquor bottle, a red ginseng extract jar, a tea box, a wine bottle, a lunch box` |
+
+> 완제품 5종 중 4종(`cosmetic`, `cake`, `seafood_set`, `gift_set`)은 아직 예시가 없습니다.
+> **[ASSETS-MISSING.md](ASSETS-MISSING.md)** 에 빠진 항목만 모아 정리했습니다.
 
 ---
 
@@ -391,6 +397,9 @@ No text, no letters, no flags.
 | 부산 | `a fish and harbor waves` |
 | 안동 | `an apple and a cow` |
 | 보성 | `green tea leaves on terraced hills` |
+
+> 위 표는 48종 중 12종만 다룹니다. 나머지 36종(세계 6개국 · 한국 시/군/구 13곳 · 한국 시/도 17곳 전체)은
+> **[ASSETS-MISSING.md](ASSETS-MISSING.md)** 에 정리했습니다.
 
 ---
 
