@@ -7,14 +7,14 @@ import {
   roomExists, readAny, writeAny, saveTeacher, loadTeacher, clearTeacher,
 } from './db.js';
 import {
-  getPreset, filterByDifficulty, DIFFICULTIES, DEFAULT_SETTINGS, ROLES,
+  getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES,
 } from './presets.js';
 import { getEvents, availableEvents, drawRandomEvent } from './events.js';
 import {
   fmtMoney, calcAssets, leaderboard, applyEventChanges, processTurn,
   makeGuard, detectTampering, genRoomCode, genId, majorityNeeded,
 } from './game.js';
-import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort } from './ui.js';
+import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort, regionWord, regionLabel } from './ui.js';
 
 const app = document.getElementById('app');
 const tbInfo = document.getElementById('tbInfo');
@@ -70,18 +70,19 @@ function subscribe() {
 const wiz = {
   step: 1,
   mode: 'country',
+  scale: 'county',    // 한국 모드일 때만 쓰임: county(시군구) / province(시도)
   difficulty: 'normal',
   nations: [],       // [{id, name, emoji, production:{}}]
   settings: { ...DEFAULT_SETTINGS },
 };
 
 function loadWizNations() {
-  const preset = getPreset(wiz.mode);
+  const preset = getPreset(wiz.mode, wiz.scale);
   wiz.nations = preset.nations.map((n) => ({ ...n, production: { ...n.production } }));
 }
 
 function wizResources() {
-  const p = getPreset(wiz.mode);
+  const p = getPreset(wiz.mode, wiz.scale);
   return filterByDifficulty(p.resources, p.recipes, wiz.difficulty);
 }
 
@@ -100,6 +101,9 @@ function renderWizard() {
 }
 
 function renderStep1(el) {
+  const showScale = wiz.mode === 'city';
+  const diffStepNo = showScale ? 3 : 2;
+
   el.innerHTML = `
   <div class="card">
     <h2>1. 어떤 무대에서 무역할까요?</h2>
@@ -109,14 +113,26 @@ function renderStep1(el) {
         <div class="pick-desc">한국·미국·브라질 등 14개 나라. 석유·철광석·반도체 등 국제 무역을 체험해요.</div>
       </button>
       <button class="pick ${wiz.mode === 'city' ? 'selected' : ''}" data-mode="city">
-        <div class="pick-title">🇰🇷 한국 지역(도시)</div>
-        <div class="pick-desc">제주·안동·부산 등 16개 지역. 감귤·한우·인삼 등 우리나라 특산물로 무역해요.</div>
+        <div class="pick-title">🇰🇷 한국 지역</div>
+        <div class="pick-desc">제주·안동·부산 등 시/군/구, 또는 서울·경기 등 시/도 단위로 무역해요.</div>
       </button>
     </div>
   </div>
 
+  ${showScale ? `
   <div class="card">
-    <h2>2. 난이도를 골라주세요</h2>
+    <h2>2. 어떤 단위로 나눌까요?</h2>
+    <div class="grid grid-2" style="margin-top:12px">
+      ${SCALES.map((s) => `
+        <button class="pick ${wiz.scale === s.id ? 'selected' : ''}" data-scale="${s.id}">
+          <div class="pick-title">${s.emoji} ${s.name}</div>
+          <div class="pick-desc">${s.desc}</div>
+        </button>`).join('')}
+    </div>
+  </div>` : ''}
+
+  <div class="card">
+    <h2>${diffStepNo}. 난이도를 골라주세요</h2>
     <div class="grid" style="margin-top:12px">
       ${DIFFICULTIES.map((d) => `
         <button class="pick ${wiz.difficulty === d.id ? 'selected' : ''}" data-diff="${d.id}">
@@ -133,6 +149,9 @@ function renderStep1(el) {
 
   el.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => {
     wiz.mode = b.dataset.mode; loadWizNations(); renderWizard();
+  });
+  el.querySelectorAll('[data-scale]').forEach((b) => b.onclick = () => {
+    wiz.scale = b.dataset.scale; loadWizNations(); renderWizard();
   });
   el.querySelectorAll('[data-diff]').forEach((b) => b.onclick = () => {
     wiz.difficulty = b.dataset.diff; renderWizard();
@@ -157,7 +176,7 @@ function renderStep2(el) {
   el.innerHTML = `
   <div class="card">
     <div class="card-head">
-      <h2>3. 참가할 ${wiz.mode === 'city' ? '지역' : '나라'} 설정</h2>
+      <h2>${wiz.mode === 'city' ? 4 : 3}. 참가할 ${regionWord(wiz.mode, wiz.scale)} 설정</h2>
       <span class="badge brand">${wiz.nations.length}개</span>
     </div>
     <p class="small muted">학생 모둠 수만큼 남기고 나머지는 삭제하세요. 특산품과 생산량도 바꿀 수 있어요.
@@ -250,7 +269,7 @@ function renderStep2(el) {
 function renderStep3(el) {
   el.innerHTML = `
   <div class="card">
-    <h2>4. 게임 규칙 설정</h2>
+    <h2>${wiz.mode === 'city' ? 5 : 4}. 게임 규칙 설정</h2>
     <div class="field">
       <label>시작 자금 (원)</label>
       <input type="number" id="sMoney" value="${wiz.settings.startingMoney}" step="10000" min="0">
@@ -323,7 +342,8 @@ async function createRoom() {
   const token = genId('t_');
   await writePath(code, '', {
     meta: {
-      mode: wiz.mode, difficulty: wiz.difficulty, status: 'lobby', turn: 1,
+      mode: wiz.mode, scale: wiz.mode === 'city' ? wiz.scale : null,
+      difficulty: wiz.difficulty, status: 'lobby', turn: 1,
       createdAt: Date.now(), teacherToken: token,
       teamApproval: wiz.settings.teamApproval,
       maxTurns: wiz.settings.maxTurns,
@@ -376,7 +396,7 @@ function renderLobby() {
   <div class="card">
     <div class="card-head">
       <h2>👥 참가 현황</h2>
-      <span class="badge brand">${joined}개 ${room.meta.mode === 'city' ? '지역' : '나라'} · ${players}명</span>
+      <span class="badge brand">${joined}개 ${regionLabel(room.meta)} · ${players}명</span>
     </div>
     <div class="grid grid-3">
       ${Object.entries(nations).map(([id, n]) => {
@@ -436,7 +456,7 @@ function renderDashboard() {
   app.innerHTML = `
   ${tampered.length ? `<div class="banner" style="background:#fdeaea;border-color:#f3b1b1">
     <div class="item-head">
-      <h3 style="margin:0">⚠️ 값이 이상하게 바뀐 ${room.meta.mode === 'city' ? '지역' : '나라'}가 있어요</h3>
+      <h3 style="margin:0">⚠️ 값이 이상하게 바뀐 ${regionLabel(room.meta)}가 있어요</h3>
       <button class="sm danger" id="fixTamper">원래대로 되돌리기</button>
     </div>
     <p class="small" style="margin:6px 0 0">턴 진행이나 교사 조정 없이 돈·자원이 바뀌었습니다.

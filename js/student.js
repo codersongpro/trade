@@ -13,7 +13,7 @@ import {
 } from './game.js';
 import {
   esc, resourceCard, statTile, crest, meter, emptyState, podium,
-  countUp, toast, fmtShort,
+  countUp, toast, fmtShort, regionLabel,
 } from './ui.js';
 
 const app = document.getElementById('app');
@@ -108,7 +108,7 @@ async function renderJoinStep2() {
   const data = await readPath(join.code, '');
   if (!data) return renderJoinStep1();
   const nations = data.nations || {};
-  const modeLabel = data.meta.mode === 'city' ? '지역' : '나라';
+  const modeLabel = regionLabel(data.meta);
 
   app.innerHTML = `<div class="wrap-narrow" style="padding:0">
     <div class="card">
@@ -204,7 +204,7 @@ function renderWaiting() {
       <div style="margin-top:12px">${mem.map((p) => `<span class="chip" style="margin:3px">${roleEmoji(p.role)} ${esc(p.name)}</span>`).join('')}</div>
     </div>
     <div class="card">
-      <h3>🌾 우리 ${room.meta.mode === 'city' ? '지역' : '나라'}의 특산품</h3>
+      <h3>🌾 우리 ${regionLabel(room.meta)}의 특산품</h3>
       <p class="small muted">매 턴 자동으로 생산돼요. 다른 나라에 팔아서 돈을 벌고, 필요한 자원은 사 오세요!</p>
       <div class="grid grid-3">
         ${Object.entries(n.production || {}).map(([r, q]) => `<div class="stock-item">
@@ -646,7 +646,7 @@ function tabCraft(el) {
 function tabWorld(el) {
   const others = Object.entries(room.nations).filter(([id, x]) => id !== myNation && Object.keys(x.members || {}).length > 0);
   el.innerHTML = `
-  <div class="card"><h3>🌍 다른 ${room.meta.mode === 'city' ? '지역' : '나라'} 살펴보기</h3>
+  <div class="card"><h3>🌍 다른 ${regionLabel(room.meta)} 살펴보기</h3>
     <p class="small muted">누가 무엇을 많이 가지고 있는지 보고 협상 전략을 세워보세요!</p></div>
   <div class="grid grid-2">
     ${others.map(([id, x]) => {
