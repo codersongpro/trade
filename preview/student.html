@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미리보기 · 학생 화면</title>
+<link rel="stylesheet" href="/css/style.css">
+<!-- 실제 Firebase 대신 이 창 안에서만 도는 가짜 DB를 쓴다 -->
+<script type="importmap">
+{"imports": {"/js/db.js": "/preview/mock-db.js"}}
+</script>
+</head>
+<body>
+<div class="topbar">
+  <span class="title">🚢 학생</span>
+  <span id="tbInfo" class="muted small"></span>
+  <span class="spacer"></span>
+  <button class="ghost sm" id="leaveBtn" style="display:none">나가기</button>
+</div>
+<div id="app" class="wrap"><div class="loading">불러오는 중…</div></div>
+<script type="module" src="/js/student.js"></script>
+</body>
+</html>

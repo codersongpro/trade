@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미리보기 모드 · 세계로 무역 게임</title>
+<link rel="stylesheet" href="/css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+<style>
+  body { background:#2b3245; margin:0; }
+  #bar { color:#fff; padding:10px 14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  #bar b { font-size:1rem; }
+  #bar .note { font-size:.82rem; color:#b6c0d6; }
+  #bar button { padding:5px 11px; font-size:.82rem; border-radius:8px; }
+  #grid { display:grid; gap:3px; padding:0 3px 3px; height: calc(100vh - 54px); }
+  .pane { display:flex; flex-direction:column; background:#fff; border-radius:10px; overflow:hidden; min-height:0; }
+  .pane .cap { background:#404a63; color:#fff; font-size:.78rem; padding:4px 9px; font-weight:700; }
+  .pane iframe { flex:1; width:100%; border:0; min-height:0; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>🧪 미리보기 모드</b>
+  <span class="note">Firebase 설정 없이 이 창 안에서만 게임이 돌아갑니다. 규칙을 익히거나 수업을 준비할 때 쓰세요.</span>
+  <span style="flex:1"></span>
+  <button class="ghost" id="addStudent">＋ 학생 창 추가</button>
+  <button class="danger" id="reset">처음부터 다시</button>
+</div>
+<div id="grid">
+  <div class="pane"><div class="cap">👩‍🏫 교사</div><iframe name="T" src="/preview/teacher.html"></iframe></div>
+  <div class="pane"><div class="cap">🧑‍🎓 학생 1</div><iframe name="S1" src="/preview/student.html"></iframe></div>
+  <div class="pane"><div class="cap">🧑‍🎓 학생 2</div><iframe name="S2" src="/preview/student.html"></iframe></div>
+</div>
+
+<script>
+  const grid = document.getElementById('grid');
+  let count = 2;
+  const layout = () => {
+    const n = grid.children.length;
+    grid.style.gridTemplateColumns = `repeat(${Math.min(n, 4)}, 1fr)`;
+    grid.style.gridTemplateRows = n > 4 ? 'repeat(2, 1fr)' : '1fr';
+  };
+  layout();
+  document.getElementById('addStudent').onclick = () => {
+    count++;
+    const pane = document.createElement('div');
+    pane.className = 'pane';
+    pane.innerHTML = `<div class="cap">🧑‍🎓 학생 ${count}</div>`;
+    const f = document.createElement('iframe');
+    f.name = 'S' + count;
+    f.src = '/preview/student.html';
+    pane.appendChild(f);
+    grid.appendChild(pane);
+    layout();
+  };
+  document.getElementById('reset').onclick = () => { sessionStorage.clear(); location.reload(); };
+</script>
+</body>
+</html>

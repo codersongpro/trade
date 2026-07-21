@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세계로 무역 게임</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚢</text></svg>">
+<style>
+  .hero { text-align: center; padding: 52px 0 34px; color: #fff; }
+  .hero .logo { font-size: 4.4rem; line-height: 1; filter: drop-shadow(0 6px 18px rgba(0,0,0,.4)); animation: bob 4s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-9px) rotate(2deg); } }
+  .hero h1 {
+    font-size: clamp(2rem, 7vw, 3rem); margin: 14px 0 8px; letter-spacing: -.04em;
+    background: linear-gradient(100deg, #fff, var(--gold)); -webkit-background-clip: text;
+    background-clip: text; color: transparent;
+  }
+  .hero p { color: #b9c6e4; font-size: 1.05rem; max-width: 32em; margin: 0 auto; }
+  .entry { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .entry-card { text-align: center; padding: 28px 24px; margin: 0; }
+  .entry-card .icon { font-size: 2.9rem; line-height: 1; }
+  .entry-card h2 { margin: 12px 0 6px; }
+  .entry-card > p { color: var(--ink-2); font-size: .9rem; min-height: 44px; }
+  .feature { display: flex; gap: 12px; align-items: flex-start; }
+  .feature .fi { font-size: 1.7rem; flex-shrink: 0; line-height: 1.2; }
+  .feature h4 { margin: 0 0 2px; }
+  .feature p { margin: 0; font-size: .86rem; color: var(--ink-2); }
+  .tier-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap-narrow">
+
+  <div class="hero">
+    <div class="logo">🚢</div>
+    <h1>세계로 무역 게임</h1>
+    <p>나라와 나라가 협상하며 자원을 사고팔고, 가공해서 이익을 남기는 교실용 무역 게임</p>
+  </div>
+
+  <div class="entry">
+    <div class="card entry-card">
+      <div class="icon">👩‍🏫</div>
+      <h2>교사</h2>
+      <p>방을 만들고 학생들에게 코드를 알려주세요. 턴 진행과 이벤트를 직접 조율합니다.</p>
+      <a class="btn lg block" href="teacher.html">방 만들기</a>
+    </div>
+
+    <div class="card entry-card">
+      <div class="icon">🧑‍🎓</div>
+      <h2>학생</h2>
+      <p>선생님이 알려준 6자리 코드를 입력해 우리 나라에 들어가세요.</p>
+      <form id="joinForm">
+        <input class="code-input" id="codeInput" maxlength="6" placeholder="ABC123"
+               autocomplete="off" aria-label="방 코드 6자리" required>
+        <button class="lg block gold shine" type="submit" style="margin-top:11px">입장하기</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🎮 어떤 게임인가요?</h3>
+    <div class="grid grid-2" style="margin-top:14px">
+      <div class="feature"><div class="fi">🌾</div><div><h4>특산품 생산</h4><p>나라마다 다른 특산품이 매 턴 자동으로 생산돼요.</p></div></div>
+      <div class="feature"><div class="fi">🤝</div><div><h4>협상과 무역</h4><p>필요한 자원은 다른 나라와 합의해서 사고팔아요.</p></div></div>
+      <div class="feature"><div class="fi">🏭</div><div><h4>자원 가공</h4><p>자원을 조합해 더 비싼 제품을 만들면 큰 이익!</p></div></div>
+      <div class="feature"><div class="fi">🎲</div><div><h4>세계 이벤트</h4><p>실제 사회 현상을 반영한 128종의 이벤트가 시세를 흔들어요.</p></div></div>
+      <div class="feature"><div class="fi">👥</div><div><h4>모둠 활동</h4><p>역할을 나누고 팀 투표로 결정해요. 인원 제한 없음!</p></div></div>
+      <div class="feature"><div class="fi">🏆</div><div><h4>총자산 순위</h4><p>돈 + 자원 가치로 순위를 겨뤄요.</p></div></div>
+    </div>
+
+    <div class="tier-legend">
+      <span class="badge" style="border-left:4px solid var(--tier-raw)">🌾 원자재</span>
+      <span class="badge" style="border-left:4px solid var(--tier-mid)">🔧 가공품</span>
+      <span class="badge" style="border-left:4px solid var(--tier-final)">✨ 완제품</span>
+    </div>
+  </div>
+
+  <div class="card center">
+    <h3>🧪 먼저 혼자 해보고 싶다면</h3>
+    <p class="small muted" style="margin-bottom:14px">
+      <b>미리보기 모드</b>에서는 교사 화면과 학생 화면을 한 화면에 띄워 게임 전체를 혼자 체험할 수 있어요.
+      수업 준비나 규칙 익히기에 좋습니다. (이 창에서만 돌아가며 저장되지 않아요)
+    </p>
+    <a class="btn ghost" href="preview/index.html">미리보기 모드 열기</a>
+  </div>
+
+  <p class="center small on-sea"><span class="muted">교실용 무료 웹 게임 · 설치 없이 브라우저에서 바로 실행</span></p>
+</div>
+
+<script>
+  const form = document.getElementById('joinForm');
+  const input = document.getElementById('codeInput');
+  input.addEventListener('input', () => { input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = input.value.trim();
+    if (code.length !== 6) { alert('6자리 코드를 정확히 입력해 주세요.'); return; }
+    location.href = `student.html?code=${code}`;
+  });
+</script>
+</body>
+</html>
