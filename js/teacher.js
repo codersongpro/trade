@@ -330,12 +330,12 @@ function renderStep3(el) {
       <label>시작 자금 (원)</label>
       <input type="number" id="sMoney" value="${wiz.settings.startingMoney}" step="${wiz.settings.moneyStep}" min="0">
       <div class="row" style="gap:6px;margin-top:7px">
-        ${[[10, '십원'], [100, '백원'], [1000, '천원'], [10000, '만원']].map(([s, label]) => `
+        ${[[1, '1원'], [10, '십원'], [100, '백원'], [1000, '천원'], [10000, '만원']].map(([s, label]) => `
           <button type="button" class="ghost sm ${wiz.settings.moneyStep === s ? 'selected' : ''}" data-mstep="${s}">${label} 단위</button>`).join('')}
       </div>
       <div class="tiny muted" style="margin-top:4px">모든 ${regionWord(wiz.mode, wiz.scale)}가 <b>똑같이</b> 받는 시작 돈이에요.
       시작 자금을 바꾸면(단위 버튼이든 직접 입력이든) <b>모든 자원의 시세도 같은 비율로</b> 함께 바뀌어요.
-      1학년처럼 아주 어린 학급이라면 <b>십원 단위</b>까지 내려서 쉬운 숫자로 만들어 보세요.</div>
+      1학년처럼 아주 어린 학급이라면 <b>1원 · 십원 단위</b>까지 내려서 쉬운 숫자로 만들어 보세요.</div>
       <div class="tiny muted" style="margin-top:6px" id="scalePreview"></div>
     </div>
     <div class="field">

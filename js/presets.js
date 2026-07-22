@@ -249,9 +249,11 @@ export function filterByDifficulty(resources, recipes, difficulty) {
 // 시작 자금을 얼마로 바꾸든(단위 버튼이든 직접 입력이든) 자원 시세도 항상 같은 비율로 따라 줄어든다.
 export const BASE_STARTING_MONEY = 500000;
 
-// 시작 자금 조정 단위 버튼 — 십원 단위는 저학년도 계산하기 쉽도록 백원 단위보다 더 잘게 잡았다.
-// 실제 시세 배율은 이 표가 아니라 그때그때의 시작 자금 값에서 바로 계산된다 (priceScaleFor 참고).
+// 시작 자금 조정 단위 버튼 — 1원 · 10원 단위는 아주 어린 학급도 계산하기 쉽도록
+// 백원 단위보다 더 잘게 잡았다. 실제 시세 배율은 이 표가 아니라 그때그때의
+// 시작 자금 값에서 바로 계산된다 (priceScaleFor 참고).
 export const MONEY_UNIT_PRESETS = {
+  1:     { startingMoney: 50 },
   10:    { startingMoney: 500 },
   100:   { startingMoney: 5000 },
   1000:  { startingMoney: 50000 },
