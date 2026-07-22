@@ -172,3 +172,23 @@ export function drawRandomEvent(mode, usedIds, roomResourceIds) {
   else pick = normals.length ? normals : rares;
   return pick[Math.floor(Math.random() * pick.length)];
 }
+
+// ---------- 이벤트 분류 (배너 배경 그림 선택용) ----------
+// 128종을 하나하나 분류하지 않고, 제목·설명의 키워드로 6종 배경에 자동 매핑한다.
+// 반환: 'weather' | 'economy' | 'tech' | 'trend' | 'accident' | 'rare'
+const CATEGORY_KEYWORDS = [
+  ['weather',  /가뭄|한파|폭염|태풍|홍수|장마|무더위|폭우|서리|산불|기후|날씨|풍년|흉년|어획량|병충해|겨울|여름/],
+  ['tech',     /AI|인공지능|반도체|전기차|배터리|스마트폰|기계|우주|자동화|로봇|태양광|칩|전자|드론|IT/],
+  ['accident', /사고|파업|봉쇄|대란|폭락|붕괴|중단|파손|논란|리콜|침체|위생|전염병|팬데믹|분쟁|규제|위축|감소|줄|하락/],
+  ['trend',    /유행|열풍|붐|특수|인기|챌린지|SNS|축제|먹방|한류|K-|밸런타인|월드컵|올림픽|명절|선물|다이어트|재조명|바이럴/],
+];
+
+export function eventCategory(ev) {
+  if (!ev) return 'economy';
+  if (ev.rare) return 'rare';
+  const text = `${ev.title || ''} ${ev.desc || ''}`;
+  for (const [cat, re] of CATEGORY_KEYWORDS) {
+    if (re.test(text)) return cat;
+  }
+  return 'economy'; // 기본: 경제(시세 변동) 배경
+}

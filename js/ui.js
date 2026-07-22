@@ -17,14 +17,21 @@ export const TIERS = {
 
 export function tierOf(res) { return TIERS[res?.tier] || TIERS.raw; }
 
+// 직접 만든 아이콘이 있는 자원만 여기 있다. 나머지는 자동으로 이모지를 쓴다.
+// (ASSETS-MISSING.md 기준으로 지금까지 준비된 4종)
+const RESOURCE_ICONS = new Set(['cosmetic', 'cake', 'seafood_set', 'gift_set']);
+
 // 자원 한 칸. 창고·거래·시세 어디서나 같은 모습으로 쓴다.
-// opts: { qty, price, dim, sub }
+// opts: { qty, price, dim, sub, id }  — id를 넘기면 직접 만든 아이콘을 우선 사용한다
 export function resourceCard(res, opts = {}) {
   if (!res) return '';
   const t = tierOf(res);
-  const { qty, price, dim, sub } = opts;
-  return `<div class="res-card ${t.cls}${dim ? ' is-dim' : ''}">
-    <span class="res-face">${res.emoji || '📦'}</span>
+  const { qty, price, dim, sub, id } = opts;
+  const face = id && RESOURCE_ICONS.has(id)
+    ? `<img class="res-face-img" src="/assets/resources/${id}.png" alt="" loading="lazy">`
+    : `<span class="res-face">${res.emoji || '📦'}</span>`;
+  return `<div class="res-card has-frame ${t.cls}${dim ? ' is-dim' : ''}">
+    ${face}
     <span class="res-body">
       <span class="res-name">${esc(res.name)}</span>
       ${price != null ? `<span class="res-sub mono">${fmtWon(price)}<span class="res-unit">/${esc(res.unit || '')}</span></span>`
@@ -70,12 +77,26 @@ export function nationHue(nation) {
   return h;
 }
 
+// 직접 만든 문장이 있는 나라/지역만 여기 있다. 나머지는 자동으로 이모지+색 테두리를 쓴다.
+// (ASSETS-MISSING.md 기준 36종. 시/군/구 busan과 시/도 busan은 파일 하나를 함께 쓴다)
+const NATION_CRESTS = new Set([
+  'china', 'japan', 'russia', 'vietnam', 'india', 'canada',
+  'hoengseong', 'seongju', 'gimje', 'pyeongchang', 'wando', 'uiseong',
+  'nonsan', 'yeongdong', 'haenam', 'geumsan', 'cheongyang', 'icheon', 'cheongju',
+  'busan', 'seoul', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsan', 'sejong',
+  'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam',
+  'gyeongbuk', 'gyeongnam', 'jeju_do',
+]);
+
 export function crest(nation, opts = {}) {
   const { size = 'md', rank } = opts;
   const hue = nationHue(nation);
   const style = `--nation-h:${hue}`;
+  const face = nation?.id && NATION_CRESTS.has(nation.id)
+    ? `<img class="crest-img" src="/assets/nations/${nation.id}.png" alt="" loading="lazy">`
+    : `<span class="crest-face">${nation?.emoji || '🏳️'}</span>`;
   return `<span class="crest crest-${size}${rank ? ` crest-rank${rank}` : ''}" style="${style}">
-    <span class="crest-face">${nation?.emoji || '🏳️'}</span>
+    ${face}
     ${rank && rank <= 3 ? `<span class="crest-medal">${['🥇', '🥈', '🥉'][rank - 1]}</span>` : ''}
   </span>`;
 }
@@ -105,10 +126,20 @@ export function meter(pct, tone = 'good') {
 const EMPTY_ART = {
   box: '📦', trade: '🤝', craft: '🏭', chat: '💬', news: '📰', people: '👥',
 };
+// 그림이 준비된 종류만 여기 연결한다. 없는 종류는 위 이모지로 자동 대체된다.
+const EMPTY_IMG = {
+  box: '/assets/empty/warehouse.png',
+  trade: '/assets/empty/trade.png',
+  chat: '/assets/empty/meeting.png',
+};
 
 export function emptyState(kind, title, desc = '') {
+  const img = EMPTY_IMG[kind];
+  const art = img
+    ? `<img class="empty-art-img" src="${img}" alt="" loading="lazy">`
+    : `<div class="empty-art">${EMPTY_ART[kind] || '📭'}</div>`;
   return `<div class="empty">
-    <div class="empty-art">${EMPTY_ART[kind] || '📭'}</div>
+    ${art}
     <div class="empty-title">${esc(title)}</div>
     ${desc ? `<div class="empty-desc">${esc(desc)}</div>` : ''}
   </div>`;
@@ -123,6 +154,7 @@ export function podium(board, myId) {
     ${order.filter((i) => board[i]).map((i) => {
       const b = board[i];
       return `<div class="podium-col podium-${i + 1}${b.id === myId ? ' is-me' : ''}">
+        ${i === 0 ? '<img class="podium-trophy" src="/assets/trophy.png" alt="우승 트로피" loading="lazy">' : ''}
         <div class="podium-crest">${crest(b, { size: 'lg', rank: i + 1 })}</div>
         <div class="podium-name">${esc(b.name)}</div>
         <div class="podium-val mono">${fmtShort(b.assets)}원</div>

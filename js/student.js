@@ -123,8 +123,8 @@ async function renderJoinStep2() {
       <h2>🎭 내 역할을 고르세요</h2>
       <p class="small muted">역할은 참고용이에요. 모든 활동은 누구나 할 수 있어요!</p>
       <div class="grid grid-2" style="margin-top:12px">
-        ${ROLES.map((r) => `<button class="pick" data-role="${r.id}">
-          <div class="pick-title">${r.emoji} ${r.name}</div>
+        ${ROLES.map((r) => `<button class="pick role-pick" data-role="${r.id}">
+          <div class="pick-title">${roleFace(r.id, 'lg')} ${r.name}</div>
           <div class="pick-desc">${r.desc}</div></button>`).join('')}
       </div>
       <button class="lg block success" id="doJoin" style="margin-top:14px" disabled>입장하기</button>
@@ -216,6 +216,14 @@ function renderWaiting() {
 
 function roleEmoji(id) { return ROLES.find((r) => r.id === id)?.emoji || '🙂'; }
 
+// 역할 아바타 그림이 있는 역할 (/assets/roles/). size: 'sm' | 'lg'
+const ROLE_AVATARS = new Set(['trader', 'producer', 'finance', 'analyst']);
+function roleFace(id, size = 'sm') {
+  return ROLE_AVATARS.has(id)
+    ? `<img class="role-avatar role-${size}" src="/assets/roles/${id}.png" alt="" loading="lazy">`
+    : `<span class="role-emoji role-${size}">${roleEmoji(id)}</span>`;
+}
+
 function renderGame() {
   const n = room.nations[myNation];
   const hasCraft = Object.keys(room.recipes || {}).length > 0;
@@ -226,8 +234,9 @@ function renderGame() {
   // 이번 턴 이벤트 속보 — 학생이 직접 닫기 전까지 계속 보인다
   const events = Object.entries(room.events || {}).sort(([, a], [, b]) => (b.ts || 0) - (a.ts || 0));
   const latest = events[0]?.[1];
+  const evCat = latest?.cat || (latest?.rare ? 'rare' : 'economy');
   const banner = latest && latest.ts !== seenEvent && latest.turn >= room.meta.turn
-    ? `<div class="banner ${latest.rare ? 'rare' : 'event'}">
+    ? `<div class="banner ${latest.rare ? 'rare' : 'event'} has-ev-bg" style="--ev-img:url('/assets/events/${evCat}.jpg')">
         <div class="item-head">
           <div>
             <div class="badge ${latest.rare ? 'gold' : 'bad'}" style="margin-bottom:5px">
@@ -311,7 +320,7 @@ function tabMine(el) {
       <span class="badge good">턴이 끝날 때마다 들어와요</span></div>
     <div class="grid grid-3">
       ${Object.entries(n.production || {}).map(([r, q]) =>
-        resourceCard(rInfo(r), { qty: `+${q}`, sub: '턴마다' })).join('')}
+        resourceCard(rInfo(r), { qty: `+${q}`, sub: '턴마다', id: r })).join('')}
     </div>
   </div>
 
@@ -319,7 +328,7 @@ function tabMine(el) {
     <div class="card-head"><h3>📦 우리 창고</h3>
       <span class="badge brand">자원 가치 ${fmtMoney(stockValue)}</span></div>
     ${stock.length ? `<div class="grid grid-3">
-      ${stock.map(([r, q]) => resourceCard(rInfo(r), { qty: q, price: rInfo(r).basePrice })).join('')}
+      ${stock.map(([r, q]) => resourceCard(rInfo(r), { qty: q, price: rInfo(r).basePrice, id: r })).join('')}
     </div>` : emptyState('box', '아직 가진 자원이 없어요',
         '턴이 진행되면 우리 특산품이 창고에 쌓입니다!')}
   </div>
@@ -331,7 +340,7 @@ function tabMine(el) {
       const c = room.contrib?.[myNation]?.[pid] || {};
       const total = (c.proposals || 0) + (c.votes || 0) + (c.crafts || 0) + (c.messages || 0);
       return `<div class="rank-row${pid === me ? ' is-me' : ''}">
-        <div style="font-size:1.3rem">${roleEmoji(p.role)}</div>
+        <div>${roleFace(p.role, 'sm')}</div>
         <div class="rank-name">${esc(p.name)} ${pid === me ? '<span class="badge brand">나</span>' : ''}
           <div class="tiny muted">${esc(ROLES.find((r) => r.id === p.role)?.name || '')}</div>
           <div style="margin-top:4px;max-width:200px">${meter((total / maxActs) * 100, 'brand')}</div>
@@ -761,7 +770,9 @@ function renderResult() {
 
   app.innerHTML = `<div class="wrap-narrow" style="padding:0">
     <div class="card center">
-      <div style="font-size:3.5rem">${['🥇', '🥈', '🥉'][myRank - 1] || '🏁'}</div>
+      ${myRank === 1
+        ? '<img class="result-trophy" src="/assets/trophy.png" alt="우승 트로피">'
+        : `<div style="font-size:3.5rem">${['🥇', '🥈', '🥉'][myRank - 1] || '🏁'}</div>`}
       <h1>${myRank}등!</h1>
       <p class="muted">${room.nations[myNation].emoji} ${esc(room.nations[myNation].name)}</p>
       <div class="row" style="justify-content:center;margin-top:14px">
@@ -771,11 +782,12 @@ function renderResult() {
     </div>
     <div class="card">
       <h3>🏆 최종 순위</h3>
-      ${board.map((b, i) => `<div class="rank-row" style="${b.id === myNation ? 'background:#eef3ff' : ''}">
+      ${podium(board, myNation)}
+      <div style="margin-top:12px">${board.map((b, i) => `<div class="rank-row${b.id === myNation ? ' is-me' : ''}">
         <div class="rank-no">${i + 1}</div>
         <div class="rank-name">${b.emoji} ${esc(b.name)}</div>
         <div class="rank-val">${fmtMoney(b.assets)}</div>
-      </div>`).join('')}
+      </div>`).join('')}</div>
     </div>
     <div class="card">
       <h3>👥 우리 모둠 활동</h3>

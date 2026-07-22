@@ -9,7 +9,7 @@ import {
 import {
   getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES,
 } from './presets.js';
-import { getEvents, availableEvents, drawRandomEvent } from './events.js';
+import { getEvents, availableEvents, drawRandomEvent, eventCategory } from './events.js';
 import {
   fmtMoney, calcAssets, leaderboard, applyEventChanges, processTurn,
   makeGuard, detectTampering, genRoomCode, genId, majorityNeeded,
@@ -561,7 +561,7 @@ function tabNations(el) {
       </div>
       <div class="tiny muted">턴당 생산: ${Object.entries(n.production || {}).map(([r, q]) => `${resources[r]?.emoji || ''}${esc(resources[r]?.name || r)} ${q}`).join(', ')}</div>
       <div class="grid grid-4" style="gap:7px;margin-top:11px">
-        ${stock.length ? stock.map(([r, q]) => resourceCard(resources[r], { qty: q })).join('')
+        ${stock.length ? stock.map(([r, q]) => resourceCard(resources[r], { qty: q, id: r })).join('')
           : '<span class="tiny muted">보유 자원 없음</span>'}
       </div>
     </div>`;
@@ -592,7 +592,7 @@ function tabTrades(el) {
         ${t.failReason ? ` · <span class="up">${esc(t.failReason)}</span>` : ''}
       </div>
     </div>`;
-  }).join('') : '<p class="muted">아직 거래가 없어요.</p>';
+  }).join('') : emptyState('trade', '아직 거래가 없어요', '학생들이 협상을 시작하면 여기에 나타나요.');
 }
 
 function tabEvents(el) {
@@ -847,7 +847,7 @@ async function fireEvent(ev) {
   updates[`usedEvents/${ev.id}`] = true;
   const eid = genId('e_');
   updates[`events/${eid}`] = {
-    title: ev.title, desc: ev.desc, rare: !!ev.rare, turn: room.meta.turn, ts: Date.now(),
+    title: ev.title, desc: ev.desc, rare: !!ev.rare, cat: eventCategory(ev), turn: room.meta.turn, ts: Date.now(),
     applied: Object.fromEntries(Object.entries(applied).map(([r, v]) => [r, v.after])),
     before: Object.fromEntries(Object.entries(applied).map(([r, v]) => [r, v.before])),
   };
