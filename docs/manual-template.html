@@ -170,7 +170,18 @@
     color: var(--ink-faint); font-size: .84rem; text-align: center;
   }
 
+  /* ---------- 배경음악 토글 ---------- */
+  .sound-fab {
+    position: fixed; top: 16px; right: 16px; z-index: 60;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 8px 14px; font-family: var(--font-sans); font-size: .82rem; font-weight: 700;
+    color: var(--ink-soft); box-shadow: var(--shadow); cursor: pointer;
+  }
+  .sound-fab:hover { color: var(--ink); border-color: var(--gold-line); }
+
   @media (max-width: 640px) {
+    .sound-fab { top: auto; bottom: 16px; right: 16px; }
     header.hero { padding-top: 40px; }
     .step { grid-template-columns: 40px 1fr; gap: 14px; padding: 30px 0; }
     .step-num { font-size: 1.15rem; }
@@ -194,6 +205,9 @@
     <div class="hero-frame"><img src="{{IMG:landing_hero}}" alt="게임 첫 화면의 항구 일러스트"></div>
   </div>
 </header>
+
+<button class="sound-fab" id="soundToggle" type="button" aria-label="배경음악 켜기/끄기">🔊 음악</button>
+<audio id="bgmAudio" src="/assets/audio/bgm.mp3" preload="auto" loop></audio>
 
 <nav class="quicknav">
   <div class="quicknav-inner">
@@ -573,3 +587,35 @@
 </section>
 
 <footer>세계로 무역 게임 사용 매뉴얼</footer>
+
+<script>
+  // 배경음악: 게임 화면(교사용)과 같은 곡·같은 켬/끔 상태를 공유합니다.
+  (() => {
+    const audio = document.getElementById('bgmAudio');
+    const btn = document.getElementById('soundToggle');
+    let muted = false;
+    try { muted = localStorage.getItem('musicMuted') === '1'; } catch (e) {}
+
+    const paint = () => {
+      btn.textContent = muted ? '🔇 음악' : '🔊 음악';
+      btn.setAttribute('aria-label', muted ? '배경음악 켜기' : '배경음악 끄기');
+    };
+    paint();
+
+    const tryPlay = () => {
+      if (muted) return;
+      audio.play().catch(() => {
+        const retry = () => { audio.play().catch(() => {}); document.removeEventListener('click', retry); };
+        document.addEventListener('click', retry, { once: true });
+      });
+    };
+    tryPlay();
+
+    btn.onclick = () => {
+      muted = !muted;
+      try { localStorage.setItem('musicMuted', muted ? '1' : '0'); } catch (e) {}
+      paint();
+      if (muted) audio.pause(); else tryPlay();
+    };
+  })();
+</script>
