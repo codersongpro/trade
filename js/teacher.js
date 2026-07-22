@@ -7,7 +7,7 @@ import {
   roomExists, readAny, writeAny, saveTeacher, loadTeacher, clearTeacher,
 } from './db.js';
 import {
-  getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES, MONEY_UNIT_PRESETS,
+  getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES, MONEY_UNIT_PRESETS, priceScaleFor,
 } from './presets.js';
 import { getEvents, availableEvents, drawRandomEvent, eventCategory } from './events.js';
 import {
@@ -226,7 +226,7 @@ function renderStep2(el) {
   </div>`;
 
   const list = document.getElementById('nationList');
-  const prodValue = (n) => Object.entries(n.production).reduce((s, [r, q]) => s + (resources[r]?.basePrice || 0) * q, 0) * (wiz.settings.priceScale || 1);
+  const prodValue = (n) => Object.entries(n.production).reduce((s, [r, q]) => s + (resources[r]?.basePrice || 0) * q, 0) * priceScaleFor(wiz.settings.startingMoney);
   const draw = () => {
     const values = wiz.nations.map(prodValue);
     const avg = values.reduce((a, b) => a + b, 0) / (values.length || 1);
@@ -330,12 +330,13 @@ function renderStep3(el) {
       <label>시작 자금 (원)</label>
       <input type="number" id="sMoney" value="${wiz.settings.startingMoney}" step="${wiz.settings.moneyStep}" min="0">
       <div class="row" style="gap:6px;margin-top:7px">
-        ${[[100, '백원'], [1000, '천원'], [10000, '만원']].map(([s, label]) => `
+        ${[[10, '십원'], [100, '백원'], [1000, '천원'], [10000, '만원']].map(([s, label]) => `
           <button type="button" class="ghost sm ${wiz.settings.moneyStep === s ? 'selected' : ''}" data-mstep="${s}">${label} 단위</button>`).join('')}
       </div>
       <div class="tiny muted" style="margin-top:4px">모든 ${regionWord(wiz.mode, wiz.scale)}가 <b>똑같이</b> 받는 시작 돈이에요.
-      단위를 바꾸면 시작 자금뿐 아니라 <b>모든 자원의 시세도 같은 비율로</b> 함께 줄어들어요.
-      저학년 학급이라면 <b>백원 단위</b>로 쉬운 숫자를 만들어 보세요.</div>
+      시작 자금을 바꾸면(단위 버튼이든 직접 입력이든) <b>모든 자원의 시세도 같은 비율로</b> 함께 바뀌어요.
+      1학년처럼 아주 어린 학급이라면 <b>십원 단위</b>까지 내려서 쉬운 숫자로 만들어 보세요.</div>
+      <div class="tiny muted" style="margin-top:6px" id="scalePreview"></div>
     </div>
     <div class="field">
       <label>목표 턴 수</label>
@@ -365,12 +366,29 @@ function renderStep3(el) {
   });
   el.querySelectorAll('[data-mstep]').forEach((b) => b.onclick = () => {
     const s = +b.dataset.mstep;
-    const preset = MONEY_UNIT_PRESETS[s];
     wiz.settings.moneyStep = s;
-    wiz.settings.startingMoney = preset.startingMoney;
-    wiz.settings.priceScale = preset.priceScale;
+    wiz.settings.startingMoney = MONEY_UNIT_PRESETS[s].startingMoney;
     renderWizard();
   });
+
+  const { resources: previewRes } = wizResources();
+  const sampleRes = Object.values(previewRes).find((r) => r.tier === 'raw') || Object.values(previewRes)[0];
+  const paintScalePreview = () => {
+    const scale = priceScaleFor(wiz.settings.startingMoney);
+    const box = document.getElementById('scalePreview');
+    if (!box) return;
+    if (!sampleRes) { box.textContent = ''; return; }
+    const scaled = Math.max(1, Math.round(sampleRes.basePrice * scale));
+    box.innerHTML = `📊 예를 들어 ${sampleRes.emoji} ${esc(sampleRes.name)}의 시세는 <b>${fmtMoney(sampleRes.basePrice)} → ${fmtMoney(scaled)}</b>가 돼요.`;
+  };
+  paintScalePreview();
+
+  const sMoneyInput = document.getElementById('sMoney');
+  sMoneyInput.oninput = () => {
+    wiz.settings.startingMoney = Math.max(0, parseInt(sMoneyInput.value) || 0);
+    paintScalePreview();
+  };
+
   document.getElementById('back3').onclick = () => { wiz.step = 2; renderWizard(); };
   document.getElementById('create').onclick = async (e) => {
     wiz.settings.startingMoney = Math.max(0, parseInt(document.getElementById('sMoney').value) || 0);
@@ -387,8 +405,8 @@ function renderStep3(el) {
 async function createRoom() {
   const { resources, recipes } = wizResources();
   // 이벤트로 시세가 변해도 원래 가격을 기억해 두어 급변을 제한한다
-  // 시작 자금 단위(백원/천원/만원)에 맞춰 모든 시세도 같은 비율로 줄인다
-  const scale = wiz.settings.priceScale || 1;
+  // 시작 자금(단위 버튼이든 직접 입력이든)에 비례해 모든 시세도 같은 비율로 줄인다
+  const scale = priceScaleFor(wiz.settings.startingMoney);
   const res = {};
   for (const [id, r] of Object.entries(resources)) {
     const price = Math.max(1, Math.round(r.basePrice * scale));

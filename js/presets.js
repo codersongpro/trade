@@ -245,18 +245,27 @@ export function filterByDifficulty(resources, recipes, difficulty) {
 
 // ---------- 공통 설정 ----------
 
-// 시작 자금 단위(백원/천원/만원)를 고르면 시작 자금과 전체 시세가 함께 그 단위에 맞게 줄어든다.
-// 만원 단위가 원래 게임의 기본 규모(스케일 1)이고, 천원·백원 단위는 각각 1/10, 1/100로 줄인다.
+// 원래 게임의 기본 시작 자금(스케일 1). 시세 배율은 여기에 대한 비율로 정해진다 —
+// 시작 자금을 얼마로 바꾸든(단위 버튼이든 직접 입력이든) 자원 시세도 항상 같은 비율로 따라 줄어든다.
+export const BASE_STARTING_MONEY = 500000;
+
+// 시작 자금 조정 단위 버튼 — 십원 단위는 저학년도 계산하기 쉽도록 백원 단위보다 더 잘게 잡았다.
+// 실제 시세 배율은 이 표가 아니라 그때그때의 시작 자금 값에서 바로 계산된다 (priceScaleFor 참고).
 export const MONEY_UNIT_PRESETS = {
-  100:   { startingMoney: 5000,   priceScale: 0.01 },
-  1000:  { startingMoney: 50000,  priceScale: 0.1 },
-  10000: { startingMoney: 500000, priceScale: 1 },
+  10:    { startingMoney: 500 },
+  100:   { startingMoney: 5000 },
+  1000:  { startingMoney: 50000 },
+  10000: { startingMoney: 500000 },
 };
+
+// 시작 자금이 얼마든(직접 입력해도) 그 값에 비례해 전체 시세를 함께 줄인다.
+export function priceScaleFor(startingMoney) {
+  return Math.max(0, startingMoney || 0) / BASE_STARTING_MONEY;
+}
 
 export const DEFAULT_SETTINGS = {
   startingMoney: 500000,    // 시작 자금 50만원
-  moneyStep: 10000,         // 시작 자금 조정 단위 (100/1,000/10,000원 — 저학년은 더 잘게)
-  priceScale: 1,            // 전체 시세 배율 (moneyStep과 함께 바뀜)
+  moneyStep: 10000,         // 시작 자금 조정 단위 (10/100/1,000/10,000원 — 저학년은 더 잘게)
   teamApproval: true,       // 모둠 과반 승인제
   maxTurns: 10,             // 목표 턴 수 (교사가 조기 종료 가능)
 };
