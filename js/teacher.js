@@ -97,7 +97,7 @@ function addOneNation() {
   if (preset) { wiz.nations.push(preset); return; }
   const { resources } = wizResources();
   const rawIds = Object.entries(resources).filter(([, r]) => r.tier === 'raw').map(([id]) => id);
-  wiz.nations.push({ id: genId('n_'), name: '새 나라', emoji: '🏳️', production: { [rawIds[0]]: 5 } });
+  wiz.nations.push({ id: genId('n_'), name: `새 ${regionWord(wiz.mode, wiz.scale)}`, emoji: '🏳️', production: { [rawIds[0]]: 5 } });
 }
 
 // 나라 수를 target으로 맞춘다 (줄이면 뒤에서 제거, 늘리면 대표 나라 자동 추가)
@@ -136,7 +136,7 @@ function renderStep1(el) {
     <div class="grid grid-2" style="margin-top:12px">
       <button class="pick ${wiz.mode === 'country' ? 'selected' : ''}" data-mode="country">
         <div class="pick-title">🌍 세계 국가</div>
-        <div class="pick-desc">한국·미국·브라질 등 14개 나라. 석유·철광석·반도체 등 국제 무역을 체험해요.</div>
+        <div class="pick-desc">한국·미국·브라질 등 14개 국가. 석유·철광석·반도체 등 국제 무역을 체험해요.</div>
       </button>
       <button class="pick ${wiz.mode === 'city' ? 'selected' : ''}" data-mode="city">
         <div class="pick-title">🇰🇷 한국 지역</div>
@@ -212,7 +212,7 @@ function renderStep2(el) {
       <div class="row" style="align-items:center;gap:8px;max-width:220px">
         <button class="ghost" id="cntMinus" aria-label="줄이기" style="min-width:44px">−</button>
         <input type="number" id="nationCount" min="2" max="${presetNationList().length}"
-               value="${wiz.nations.length}" style="text-align:center" aria-label="참가 나라 수">
+               value="${wiz.nations.length}" style="text-align:center" aria-label="참가 ${regionWord(wiz.mode, wiz.scale)} 수">
         <button class="ghost" id="cntPlus" aria-label="늘리기" style="min-width:44px">+</button>
       </div>
       <div class="tiny muted" style="margin-top:5px">최대 ${presetNationList().length}개까지 대표 ${regionWord(wiz.mode, wiz.scale)}가 자동으로 채워져요.</div>
@@ -320,7 +320,7 @@ function renderStep3(el) {
     <div class="field">
       <label>시작 자금 (원)</label>
       <input type="number" id="sMoney" value="${wiz.settings.startingMoney}" step="10000" min="0">
-      <div class="tiny muted" style="margin-top:4px">모든 나라가 똑같이 받는 시작 돈이에요.</div>
+      <div class="tiny muted" style="margin-top:4px">모든 ${regionWord(wiz.mode, wiz.scale)}가 똑같이 받는 시작 돈이에요.</div>
     </div>
     <div class="field">
       <label>목표 턴 수</label>
@@ -379,6 +379,7 @@ async function createRoom() {
       name: n.name, emoji: n.emoji,
       money: wiz.settings.startingMoney,
       production: n.production,
+      needs: (n.needs || []).filter((id) => res[id]), // 방에 있는 자원만 (난이도 호환)
       stock: Object.fromEntries(Object.keys(res).map((r) => [r, 0])),
       members: {},
     };
@@ -451,7 +452,7 @@ function renderLobby() {
       <button class="ghost" id="copyCode">📋 코드 복사</button>
       <button class="ghost" id="copyUrl">🔗 학생 링크 복사</button>
     </div>
-    <p class="tiny muted" style="margin-top:12px">학생이 자기 기기에서 이 주소를 열거나 QR을 스캔하면 이름만 입력하고 나라를 고르면 됩니다.</p>
+    <p class="tiny muted" style="margin-top:12px">학생이 자기 기기에서 이 주소를 열거나 QR을 스캔하면 이름만 입력하고 ${regionLabel(room.meta)}를 고르면 됩니다.</p>
   </div>
 
   <div class="card">
@@ -481,7 +482,7 @@ function renderLobby() {
   <div class="row">
     <button class="danger ghost" id="delRoom">방 삭제</button>
     <button class="lg success" id="startGame" ${joined < 2 ? 'disabled' : ''}>
-      ${joined < 2 ? '2개 이상의 나라에 학생이 들어와야 시작할 수 있어요' : '🚀 게임 시작!'}
+      ${joined < 2 ? `2개 이상의 ${regionLabel(room.meta)}에 학생이 들어와야 시작할 수 있어요` : '🚀 게임 시작!'}
     </button>
   </div>`;
 
@@ -548,7 +549,7 @@ function renderDashboard() {
       </div>
 
       <div class="tabs">
-        <button data-tab="nations" class="${tab === 'nations' ? 'active' : ''}">🌍 나라 현황</button>
+        <button data-tab="nations" class="${tab === 'nations' ? 'active' : ''}">🌍 ${regionLabel(room.meta)} 현황</button>
         <button data-tab="trades" class="${tab === 'trades' ? 'active' : ''}">🤝 거래 현황</button>
         <button data-tab="events" class="${tab === 'events' ? 'active' : ''}">🎲 이벤트 카드</button>
         <button data-tab="market" class="${tab === 'market' ? 'active' : ''}">📈 시세표</button>
@@ -568,7 +569,7 @@ function renderDashboard() {
             <div class="rank-no">${i + 1}</div>
             <div class="rank-name">${b.emoji} ${esc(b.name)}</div>
             <div class="rank-val">${fmtMoney(b.assets)}</div>
-          </div>`).join('') || emptyState('people', '참가한 나라가 없어요')}</div>
+          </div>`).join('') || emptyState('people', `참가한 ${regionLabel(room.meta)}가 없어요`)}</div>
         <div class="tiny muted" style="margin-top:8px">총자산 = 보유 현금 + 보유 자원의 현재 시세 합</div>
       </div>
       <div class="card">
@@ -767,7 +768,7 @@ function tabAdmin(el) {
   const resources = room.resources || {};
   el.innerHTML = `<div class="card">
     <h3>⚙️ 수동 조정</h3>
-    <p class="small muted">진행이 꼬였을 때 특정 나라의 돈이나 자원을 직접 조정할 수 있어요. 조정 내역은 기록에 남습니다.</p>
+    <p class="small muted">진행이 꼬였을 때 특정 ${regionLabel(room.meta)}의 돈이나 자원을 직접 조정할 수 있어요. 조정 내역은 기록에 남습니다.</p>
     <div class="field"><label>대상</label>
       <select id="adjNation">${Object.entries(nations).map(([id, n]) => `<option value="${id}">${n.emoji} ${esc(n.name)}</option>`).join('')}</select>
     </div>
@@ -821,7 +822,7 @@ function renderEnded() {
   <div class="card">
     <h2>🏆 최종 순위</h2>
     <div class="table-scroll"><table>
-      <thead><tr><th>순위</th><th>나라</th><th class="num">현금</th><th class="num">자원 가치</th><th class="num">총자산</th><th class="num">시작 대비</th></tr></thead>
+      <thead><tr><th>순위</th><th>${regionLabel(room.meta)}</th><th class="num">현금</th><th class="num">자원 가치</th><th class="num">총자산</th><th class="num">시작 대비</th></tr></thead>
       <tbody>${board.map((b, i) => {
         const growth = start ? ((b.assets - start) / start) * 100 : 0;
         return `<tr>
@@ -862,7 +863,8 @@ async function advanceTurn() {
   const m = room.meta;
   const accepted = Object.values(room.trades || {}).filter((t) => t.status === 'accepted').length;
   const queued = Object.values(room.crafts || {}).filter((c) => c.status === 'queued').length;
-  if (!confirm(`${m.turn}턴을 진행할까요?\n\n· 합의된 거래 ${accepted}건이 체결됩니다\n· 모든 나라가 특산품을 생산합니다${Object.keys(room.recipes || {}).length ? `\n· 예약된 제작 ${queued}건이 실행됩니다` : ''}\n\n되돌릴 수 없어요.`)) return;
+  const exq = Object.values(room.exports || {}).filter((x) => x.status === 'queued').length;
+  if (!confirm(`${m.turn}턴을 진행할까요?\n\n· 합의된 거래 ${accepted}건이 체결됩니다\n· 모든 ${regionLabel(m)}가 특산품을 생산합니다${Object.keys(room.recipes || {}).length ? `\n· 예약된 제작 ${queued}건이 실행됩니다` : ''}${exq ? `\n· 세계시장 수출 ${exq}건이 처리됩니다` : ''}\n\n되돌릴 수 없어요.`)) return;
 
   busy = true;
   render();
@@ -881,6 +883,10 @@ async function advanceTurn() {
     for (const [cid, s] of Object.entries(result.craftStatus)) {
       updates[`crafts/${cid}/status`] = s.status;
       if (s.failReason) updates[`crafts/${cid}/failReason`] = s.failReason;
+    }
+    for (const [xid, s] of Object.entries(result.exportStatus || {})) {
+      updates[`exports/${xid}/status`] = s.status;
+      if (s.failReason) updates[`exports/${xid}/failReason`] = s.failReason;
     }
     // 미합의 상태로 남은 제안은 만료 처리
     for (const [tid, t] of Object.entries(room.trades || {})) {

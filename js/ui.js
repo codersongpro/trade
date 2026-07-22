@@ -42,10 +42,10 @@ export function resourceCard(res, opts = {}) {
 }
 
 // ---------- 참가 단위 명칭 ----------
-// 세계 모드는 '나라', 한국 모드는 단위(시군구/시도)에 따라 '지역' 또는 '시·도'
+// 세계 모드는 '국가', 한국 모드는 단위(시군구/시도)에 따라 '지역' 또는 '시·도'
 
 export function regionWord(mode, scale) {
-  if (mode !== 'city') return '나라';
+  if (mode !== 'city') return '국가';
   return scale === 'province' ? '시·도' : '지역';
 }
 

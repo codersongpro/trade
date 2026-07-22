@@ -10,6 +10,7 @@ import { ROLES } from './presets.js';
 import {
   fmtMoney, calcAssets, leaderboard, majorityNeeded, voteResult,
   validateTradeInput, projectedStock, genId,
+  isExportable, exportGain, EXPORT_PREMIUM, NEED_PREMIUM,
 } from './game.js';
 import {
   esc, resourceCard, statTile, crest, meter, emptyState, podium,
@@ -223,7 +224,7 @@ function renderWaiting() {
     </div>
     <div class="card">
       <h3>🌾 우리 ${regionLabel(room.meta)}의 특산품</h3>
-      <p class="small muted">매 턴 자동으로 생산돼요. 다른 나라에 팔아서 돈을 벌고, 필요한 자원은 사 오세요!</p>
+      <p class="small muted">매 턴 자동으로 생산돼요. 다른 ${regionLabel(room.meta)}에 팔아서 돈을 벌고, 필요한 자원은 사 오세요!</p>
       <div class="grid grid-3">
         ${Object.entries(n.production || {}).map(([r, q]) => `<div class="stock-item">
           <span>${rInfo(r).emoji} ${esc(rInfo(r).name)}</span><span class="qty">턴당 ${q}</span></div>`).join('')}
@@ -291,15 +292,15 @@ function renderGame() {
         </div>
       </div>
       ${statTile({ icon: '💰', label: '보유 현금', value: fmtMoney(n.money || 0), tone: 'gold', id: 'hudMoney' })}
-      ${statTile({ icon: '📊', label: '총자산', value: fmtMoney(assets), sub: `${board.length}개 나라 중 ${myRank}등`, id: 'hudAssets' })}
+      ${statTile({ icon: '📊', label: '총자산', value: fmtMoney(assets), sub: `${board.length}개 ${regionLabel(room.meta)} 중 ${myRank}등`, id: 'hudAssets' })}
     </div>
   </div>
 
   <div class="tabs">
-    <button data-tab="mine" class="${tab === 'mine' ? 'active' : ''}">🏠 우리 나라</button>
+    <button data-tab="mine" class="${tab === 'mine' ? 'active' : ''}">🏠 우리 ${regionLabel(room.meta)}</button>
     <button data-tab="trade" class="${tab === 'trade' ? 'active' : ''}">🤝 무역${pendingForMe ? ` <span class="badge bad">${pendingForMe}</span>` : ''}</button>
     ${hasCraft ? `<button data-tab="craft" class="${tab === 'craft' ? 'active' : ''}">🏭 제작</button>` : ''}
-    <button data-tab="world" class="${tab === 'world' ? 'active' : ''}">🌍 다른 나라</button>
+    <button data-tab="world" class="${tab === 'world' ? 'active' : ''}">🌍 다른 ${regionLabel(room.meta)}</button>
     <button data-tab="market" class="${tab === 'market' ? 'active' : ''}">📈 시세</button>
     <button data-tab="chat" class="${tab === 'chat' ? 'active' : ''}">💬 회의</button>
     <button data-tab="rank" class="${tab === 'rank' ? 'active' : ''}">🏆 순위</button>
@@ -332,6 +333,9 @@ function tabMine(el) {
   const maxActs = Math.max(1, ...Object.values(room.contrib?.[myNation] || {})
     .map((c) => (c.proposals || 0) + (c.votes || 0) + (c.crafts || 0) + (c.messages || 0)));
 
+  const needs = (n.needs || []).filter((id) => room.resources[id]);
+  const pct = Math.round((NEED_PREMIUM - 1) * 100);
+
   el.innerHTML = `
   <div class="card">
     <div class="card-head"><h3>🌾 매 턴 자동 생산</h3>
@@ -341,6 +345,16 @@ function tabMine(el) {
         resourceCard(rInfo(r), { qty: `+${q}`, sub: '턴마다', id: r })).join('')}
     </div>
   </div>
+
+  ${needs.length ? `<div class="card need-card">
+    <div class="card-head"><h3>🎯 우리가 원하는 물자</h3>
+      <span class="badge gold">보유하면 가치 +${pct}%</span></div>
+    <p class="small muted">이 물자는 우리에게 특히 값져요. 사서 모으면 <b>총자산이 ${pct}% 더</b> 오릅니다.
+    다른 ${regionLabel(room.meta)}에서 사 오세요!</p>
+    <div class="grid grid-3">
+      ${needs.map((r) => resourceCard(rInfo(r), { qty: n.stock?.[r] || 0, price: rInfo(r).basePrice, id: r })).join('')}
+    </div>
+  </div>` : ''}
 
   <div class="card">
     <div class="card-head"><h3>📦 우리 창고</h3>
@@ -577,6 +591,10 @@ function tabCraft(el) {
   const n = room.nations[myNation];
   const recipes = Object.entries(room.recipes || {});
   const queued = Object.entries(room.crafts || {}).filter(([, c]) => c.status === 'queued' && c.nation === myNation);
+  // 수출: 지금 보유한 가공품·완제품
+  const exportable = Object.entries(n.stock || {}).filter(([r, q]) => q > 0 && isExportable(rInfo(r)));
+  const queuedExports = Object.entries(room.exports || {}).filter(([, x]) => x.status === 'queued' && x.nation === myNation);
+  const exQueuedQty = (rid) => queuedExports.filter(([, x]) => x.resId === rid).reduce((s, [, x]) => s + (x.qty || 0), 0);
   const doneRecent = Object.entries(room.crafts || {}).filter(([, c]) => c.status !== 'queued' && c.nation === myNation)
     .sort(([, a], [, b]) => (b.queuedAt || 0) - (a.queuedAt || 0)).slice(0, 5);
 
@@ -646,6 +664,33 @@ function tabCraft(el) {
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-head"><h3>🚢 세계시장 수출</h3>
+      <span class="badge gold">시세보다 웃돈!</span></div>
+    <p class="small muted">가공품·완제품을 세계시장에 팔면 시세보다 <b>웃돈</b>을 받아 현금이 됩니다.
+    <b>가공할수록 이득</b>이 커져요! (예약하면 턴이 진행될 때 팔려요)</p>
+    ${queuedExports.length ? `<div style="margin-bottom:10px">${queuedExports.map(([xid, x]) => `
+      <div class="item ok"><div class="item-head">
+        <div class="small"><b>🚢 ${rInfo(x.resId).emoji} ${esc(rInfo(x.resId).name)} ×${x.qty}</b>
+          <span class="up">→ ${fmtMoney(exportGain(rInfo(x.resId), x.qty))}</span></div>
+        <button class="ghost sm" data-unexport="${xid}">취소</button>
+      </div></div>`).join('')}</div>` : ''}
+    ${exportable.length ? exportable.map(([r, q]) => {
+      const avail = q - exQueuedQty(r);
+      const prem = Math.round(((EXPORT_PREMIUM[rInfo(r).tier] || 1) - 1) * 100);
+      return `<div class="item"><div class="item-head">
+        <div><b>${rInfo(r).emoji} ${esc(rInfo(r).name)}</b>
+          <span class="badge gold">수출가 ${fmtMoney(exportGain(rInfo(r), 1))}/개 (+${prem}%)</span>
+          <div class="tiny muted">보유 ${q}개 · 시세 ${fmtMoney(rInfo(r).basePrice)}</div></div>
+        <div class="row" style="max-width:190px;align-items:center">
+          <input type="number" min="1" max="${Math.max(1, avail)}" value="${Math.max(1, avail)}"
+                 data-exqty="${r}" style="max-width:66px" aria-label="수출 개수" ${avail < 1 ? 'disabled' : ''}>
+          <button class="sm success" data-export="${r}" ${avail < 1 ? 'disabled' : ''}>수출 예약</button>
+        </div>
+      </div></div>`;
+    }).join('') : '<p class="tiny muted">아직 수출할 가공품·완제품이 없어요. 위에서 만들어 보세요!</p>'}
+  </div>
+
   ${doneRecent.length ? `<div class="card"><h3>📜 지난 제작</h3>
     ${doneRecent.map(([, c]) => {
       const rec = room.recipes[c.recipeId];
@@ -667,6 +712,18 @@ function tabCraft(el) {
   el.querySelectorAll('[data-uncraft]').forEach((b) => b.onclick = async () => {
     await removePath(roomCode, `crafts/${b.dataset.uncraft}`);
   });
+  el.querySelectorAll('[data-export]').forEach((b) => b.onclick = async () => {
+    const rid = b.dataset.export;
+    const qty = Math.max(1, parseInt(el.querySelector(`[data-exqty="${rid}"]`).value) || 1);
+    const xid = genId('x_');
+    await updatePath(roomCode, 'exports', {
+      [xid]: { nation: myNation, resId: rid, qty, status: 'queued', by: me, byName: myName(), queuedAt: Date.now() },
+    });
+    toast('🚢 수출 예약! 턴이 진행되면 현금이 들어와요', 'good');
+  });
+  el.querySelectorAll('[data-unexport]').forEach((b) => b.onclick = async () => {
+    await removePath(roomCode, `exports/${b.dataset.unexport}`);
+  });
 }
 
 // ---- 다른 나라 ----
@@ -674,15 +731,20 @@ function tabWorld(el) {
   const others = Object.entries(room.nations).filter(([id, x]) => id !== myNation && Object.keys(x.members || {}).length > 0);
   el.innerHTML = `
   <div class="card"><h3>🌍 다른 ${regionLabel(room.meta)} 살펴보기</h3>
-    <p class="small muted">누가 무엇을 많이 가지고 있는지 보고 협상 전략을 세워보세요!</p></div>
+    <p class="small muted">각 ${regionLabel(room.meta)}가 <b>원하는 물자(🎯)</b>를 팔면 비싸게 넘길 수 있어요.
+    누가 무엇을 원하고 무엇을 많이 가졌는지 보고 협상 전략을 세워보세요!</p></div>
   <div class="grid grid-2">
     ${others.map(([id, x]) => {
       const stock = Object.entries(x.stock || {}).filter(([, q]) => q > 0).sort((a, b) => b[1] - a[1]);
+      const wants = (x.needs || []).filter((r) => room.resources[r]);
       return `<div class="card" style="margin:0">
-        <div class="card-head"><h3>${x.emoji} ${esc(x.name)}</h3>
+        <div class="card-head"><h3 style="display:flex;align-items:center;gap:8px">${crest({ id, ...x }, { size: 'sm' })} ${esc(x.name)}</h3>
           <span class="badge">${Object.keys(x.members || {}).length}명</span></div>
-        <div class="tiny muted">턴당 생산: ${Object.entries(x.production || {}).map(([r, q]) => `${rInfo(r).emoji}${esc(rInfo(r).name)} ${q}`).join(', ')}</div>
-        <div class="grid grid-4" style="gap:6px;margin-top:10px">
+        ${wants.length ? `<div class="want-row">🎯 원하는 물자:
+          ${wants.map((r) => `<span class="want-chip">${rInfo(r).emoji} ${esc(rInfo(r).name)}</span>`).join('')}
+          <span class="tiny muted">— 팔면 우리에게 유리!</span></div>` : ''}
+        <div class="tiny muted" style="margin-top:8px">턴당 생산: ${Object.entries(x.production || {}).map(([r, q]) => `${rInfo(r).emoji}${esc(rInfo(r).name)} ${q}`).join(', ')}</div>
+        <div class="grid grid-4" style="gap:6px;margin-top:8px">
           ${stock.length ? stock.map(([r, q]) => `<div class="stock-item tiny">
             <span>${rInfo(r).emoji} ${esc(rInfo(r).name)}</span><span class="qty">${q}</span></div>`).join('')
             : '<span class="tiny muted">보유 자원 없음</span>'}
@@ -762,7 +824,7 @@ function tabRank(el) {
     ${podium(board, myNation)}
     <p class="small muted center" style="margin-top:14px">총자산 = 보유 현금 + 가진 자원의 현재 시세 합</p>
     <div class="table-scroll"><table>
-      <thead><tr><th>순위</th><th>나라</th><th class="num">현금</th><th class="num">자원</th><th class="num">총자산</th><th class="num">성장률</th></tr></thead>
+      <thead><tr><th>순위</th><th>${regionLabel(room.meta)}</th><th class="num">현금</th><th class="num">자원</th><th class="num">총자산</th><th class="num">성장률</th></tr></thead>
       <tbody>${board.map((b, i) => {
         const growth = start ? ((b.assets - start) / start) * 100 : 0;
         return `<tr class="${b.id === myNation ? 'is-me' : ''}">

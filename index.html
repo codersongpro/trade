@@ -5,20 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>세계로 무역 게임</title>
 <meta property="og:title" content="세계로 무역 게임">
-<meta property="og:description" content="나라끼리 협상하며 자원을 사고파는 교실용 무역 게임">
+<meta property="og:description" content="국가끼리 협상하고 의사결정하며 자원을 사고파는 교실용 무역 게임">
 <meta property="og:image" content="/assets/og-image.jpg">
 <link rel="stylesheet" href="css/style.css">
 <link rel="icon" href="/assets/icon-512.jpg">
 <style>
-  .hero { text-align: center; padding: 52px 0 34px; color: #fff; }
-  .hero .logo { font-size: 4.4rem; line-height: 1; filter: drop-shadow(0 6px 18px rgba(0,0,0,.4)); animation: bob 4s ease-in-out infinite; }
-  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-9px) rotate(2deg); } }
+  .hero { text-align: center; padding: 40px 0 28px; color: #fff; }
   .hero h1 {
     font-size: clamp(2rem, 7vw, 3rem); margin: 14px 0 8px; letter-spacing: -.04em;
     background: linear-gradient(100deg, #fff, var(--gold)); -webkit-background-clip: text;
     background-clip: text; color: transparent;
   }
   .hero p { color: #b9c6e4; font-size: 1.05rem; max-width: 32em; margin: 0 auto; }
+  .hero-img { width: 100%; max-width: 620px; height: auto; border-radius: 18px; box-shadow: var(--shadow-pop); margin-bottom: 6px; }
   .entry { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
   .entry-card { text-align: center; padding: 28px 24px; margin: 0; }
   .entry-card .icon { font-size: 2.9rem; line-height: 1; }
@@ -29,30 +28,80 @@
   .feature h4 { margin: 0 0 2px; }
   .feature p { margin: 0; font-size: .86rem; color: var(--ink-2); }
   .tier-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
-  .hero-img { width: 100%; max-width: 620px; height: auto; border-radius: 18px; box-shadow: var(--shadow-pop); margin-bottom: 6px; }
+
+  /* ---------- 인트로 오버레이 ---------- */
+  .intro {
+    position: fixed; inset: 0; z-index: 300; place-items: center;
+    background: radial-gradient(1200px 700px at 50% -10%, rgba(61,110,245,.35), transparent 70%), var(--sea-900);
+    padding: 18px;
+  }
+  /* hidden 속성이 실제로 화면을 가리도록: 클래스 규칙(display:grid)이 hidden보다 우선하지 않게 분리 */
+  .intro:not([hidden]) { display: grid; }
+  .intro[hidden] { display: none; }
+  .intro-card {
+    width: min(560px, 96vw); background: var(--card); border-radius: 22px;
+    box-shadow: var(--shadow-pop); padding: 30px 26px 22px; text-align: center;
+    animation: introPop .4s cubic-bezier(.2,.9,.3,1.3);
+  }
+  @keyframes introPop { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+  .slide-art { font-size: 4.4rem; line-height: 1; margin-bottom: 8px; animation: bob 3.5s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .slide-art-img { width: 180px; height: 180px; object-fit: contain; margin: 0 auto 8px; display: block; }
+  .intro-card h2 { font-size: 1.5rem; margin: 6px 0 8px; }
+  .intro-card p { color: var(--ink-2); font-size: 1rem; line-height: 1.6; margin: 0 auto; max-width: 30em; }
+  .intro-tag { display: inline-block; font-weight: 800; font-size: .8rem; color: var(--brand-deep);
+    background: var(--brand-soft); border-radius: 999px; padding: 3px 12px; margin-bottom: 8px; }
+  .intro-tag.gold { color: var(--gold-deep); background: var(--gold-soft); }
+  .intro-dots { display: flex; gap: 7px; justify-content: center; margin: 20px 0 16px; }
+  .intro-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); transition: all .2s; }
+  .intro-dots i.on { background: var(--brand); width: 22px; border-radius: 999px; }
+  .intro-nav { display: flex; gap: 10px; }
+  .intro-skip { background: none; border: none; box-shadow: none; color: var(--muted); text-decoration: underline;
+    font-size: .84rem; cursor: pointer; margin-top: 10px; padding: 4px; }
+  .intro-skip:hover { color: var(--ink-2); filter: none; }
+  .replay-btn { background: none; border: 1px solid rgba(255,255,255,.25); color: #cfe;
+    box-shadow: none; font-size: .84rem; }
 </style>
 </head>
 <body>
+
+<!-- ===================== 인트로 (환영 + 게임 방법) ===================== -->
+<div class="intro" id="intro" hidden>
+  <div class="intro-card">
+    <div id="slideArt" class="slide-art">🚢</div>
+    <div id="slideTag"></div>
+    <h2 id="slideTitle"></h2>
+    <p id="slideDesc"></p>
+    <div class="intro-dots" id="introDots"></div>
+    <div class="intro-nav">
+      <button class="ghost" id="introPrev" style="flex:0 0 auto">← 이전</button>
+      <button class="lg block" id="introNext">다음 →</button>
+    </div>
+    <button class="intro-skip" id="introSkip">건너뛰기</button>
+  </div>
+</div>
+
 <div class="wrap-narrow">
 
   <div class="hero">
-    <img class="hero-img" src="/assets/hero-port.jpg" alt="여러 나라의 배가 드나드는 노을 진 항구 풍경" loading="lazy">
+    <img class="hero-img" src="/assets/hero-port.jpg" alt="여러 국가의 배가 드나드는 노을 진 항구 풍경" loading="lazy">
     <h1>세계로 무역 게임</h1>
-    <p>나라와 나라가 협상하며 자원을 사고팔고, 가공해서 이익을 남기는 교실용 무역 게임</p>
+    <p>국가끼리 협상하고 <b>함께 의사결정</b>하며 자원을 사고팔고, 가공해 이익을 남기는 교실용 무역 게임</p>
+    <button class="replay-btn btn" id="replayIntro" style="margin-top:14px">🎬 게임 방법 다시 보기</button>
   </div>
 
   <div class="entry">
     <div class="card entry-card">
       <div class="icon">👩‍🏫</div>
       <h2>교사</h2>
-      <p>방을 만들고 학생들에게 코드를 알려주세요. 턴 진행과 이벤트를 직접 조율합니다.</p>
+      <p>방을 만들고 학생들에게 코드·QR을 보여주세요. 턴 진행과 이벤트를 직접 조율합니다.</p>
       <a class="btn lg block" href="teacher.html">방 만들기</a>
     </div>
 
     <div class="card entry-card">
       <div class="icon">🧑‍🎓</div>
       <h2>학생</h2>
-      <p>선생님이 알려준 6자리 코드를 입력해 우리 나라에 들어가세요.</p>
+      <p>선생님이 알려준 6자리 코드를 입력하거나 QR을 스캔해 우리 국가에 들어가세요.</p>
       <form id="joinForm">
         <input class="code-input" id="codeInput" maxlength="6" placeholder="ABC123"
                autocomplete="off" aria-label="방 코드 6자리" required>
@@ -64,12 +113,12 @@
   <div class="card">
     <h3>🎮 어떤 게임인가요?</h3>
     <div class="grid grid-2" style="margin-top:14px">
-      <div class="feature"><div class="fi">🌾</div><div><h4>특산품 생산</h4><p>나라마다 다른 특산품이 매 턴 자동으로 생산돼요.</p></div></div>
-      <div class="feature"><div class="fi">🤝</div><div><h4>협상과 무역</h4><p>필요한 자원은 다른 나라와 합의해서 사고팔아요.</p></div></div>
-      <div class="feature"><div class="fi">🏭</div><div><h4>자원 가공</h4><p>자원을 조합해 더 비싼 제품을 만들면 큰 이익!</p></div></div>
+      <div class="feature"><div class="fi">🌾</div><div><h4>특산품 생산</h4><p>국가마다 다른 특산품이 매 턴 자동으로 생산돼요.</p></div></div>
+      <div class="feature"><div class="fi">🤝</div><div><h4>협상과 무역</h4><p>필요한 자원은 다른 국가와 합의해서 사고팔아요.</p></div></div>
+      <div class="feature"><div class="fi">🗳️</div><div><h4>함께 의사결정</h4><p>모둠이 한 국가가 되어 <b>팀 투표로 합의</b>해요. 민주적 의사결정을 배웁니다.</p></div></div>
+      <div class="feature"><div class="fi">🏭</div><div><h4>가공과 수출</h4><p>자원을 조합해 완제품을 만들고 세계시장에 수출하면 큰 이익!</p></div></div>
+      <div class="feature"><div class="fi">🎯</div><div><h4>국가별 수요</h4><p>우리가 원하는 물자를 모으면 총자산이 더 오르고, 무역이 활발해져요.</p></div></div>
       <div class="feature"><div class="fi">🎲</div><div><h4>세계 이벤트</h4><p>실제 사회 현상을 반영한 128종의 이벤트가 시세를 흔들어요.</p></div></div>
-      <div class="feature"><div class="fi">👥</div><div><h4>모둠 활동</h4><p>역할을 나누고 팀 투표로 결정해요. 인원 제한 없음!</p></div></div>
-      <div class="feature"><div class="fi">🏆</div><div><h4>총자산 순위</h4><p>돈 + 자원 가치로 순위를 겨뤄요.</p></div></div>
     </div>
 
     <div class="tier-legend">
@@ -92,6 +141,7 @@
 </div>
 
 <script>
+  // ---------- 학생 코드 입력 ----------
   const form = document.getElementById('joinForm');
   const input = document.getElementById('codeInput');
   input.addEventListener('input', () => { input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
@@ -101,6 +151,66 @@
     if (code.length !== 6) { alert('6자리 코드를 정확히 입력해 주세요.'); return; }
     location.href = `student.html?code=${code}`;
   });
+
+  // ---------- 인트로 슬라이드 ----------
+  // art: 이모지(기본). /assets/intro/<img>.png 이 있으면 그 그림을 대신 씁니다.
+  const SLIDES = [
+    { emoji: '🚢', img: 'welcome',  tag: '', tagGold: true,
+      title: '세계로 무역 게임에 오신 걸 환영해요!',
+      desc: '여러분은 한 국가(또는 지역)의 대표가 됩니다. 특산품을 팔고, 필요한 것을 사고, 힘을 모아 가장 부유한 국가를 만들어 보세요.' },
+    { emoji: '🌾', img: 'produce', tag: '① 생산',
+      title: '특산품이 매 턴 저절로 쌓여요',
+      desc: '우리 국가는 매 턴 특산품을 자동으로 생산해요. 하지만 우리에게 없는 자원도 많죠. 무엇이 남고 무엇이 부족한지 살펴보세요.' },
+    { emoji: '🤝', img: 'trade', tag: '② 무역',
+      title: '다른 국가와 협상해서 사고팔아요',
+      desc: '남는 특산품은 팔고, 부족한 자원은 사 와요. 각 국가가 특히 원하는 물자(🎯)를 팔면 더 비싸게 넘길 수 있어요.' },
+    { emoji: '🗳️', img: 'decide', tag: '③ 의사결정', tagGold: true,
+      title: '모둠이 함께 결정해요',
+      desc: '거래를 보내거나 받아들일 때 모둠원 과반수가 찬성해야 해요. 서로 의견을 나누고 합의하는 민주적 의사결정을 직접 경험합니다.' },
+    { emoji: '🏭', img: 'craft', tag: '④ 가공·수출',
+      title: '가공하면 값이 뛰어요',
+      desc: '자원을 조합하면 훨씬 비싼 완제품이 돼요. 완제품을 세계시장에 수출하면 시세보다 웃돈을 받아 큰 이익을 남길 수 있어요.' },
+    { emoji: '🏆', img: 'win', tag: '⑤ 목표',
+      title: '가장 부유한 국가가 되자!',
+      desc: '현금과 가진 자원의 가치를 더한 총자산으로 순위를 겨뤄요. 똑똑한 협상과 좋은 결정이 승리를 만듭니다. 준비됐나요?' },
+  ];
+
+  const introEl = document.getElementById('intro');
+  const artEl = document.getElementById('slideArt');
+  const tagEl = document.getElementById('slideTag');
+  const titleEl = document.getElementById('slideTitle');
+  const descEl = document.getElementById('slideDesc');
+  const dotsEl = document.getElementById('introDots');
+  const prevBtn = document.getElementById('introPrev');
+  const nextBtn = document.getElementById('introNext');
+  let idx = 0;
+
+  dotsEl.innerHTML = SLIDES.map(() => '<i></i>').join('');
+
+  function paintSlide() {
+    const s = SLIDES[idx];
+    // 그림이 있으면 그림, 없으면 이모지
+    artEl.innerHTML = `<img class="slide-art-img" src="/assets/intro/${s.img}.png" alt=""
+      onerror="this.parentElement.textContent='${s.emoji}'">`;
+    tagEl.innerHTML = s.tag ? `<span class="intro-tag ${s.tagGold ? 'gold' : ''}">${s.tag}</span>` : '';
+    titleEl.textContent = s.title;
+    descEl.textContent = s.desc;
+    [...dotsEl.children].forEach((d, i) => d.classList.toggle('on', i === idx));
+    prevBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+    nextBtn.textContent = idx === SLIDES.length - 1 ? '🚀 시작하기' : '다음 →';
+  }
+  function closeIntro() { introEl.hidden = true; try { localStorage.setItem('introSeen', '1'); } catch (e) {} }
+  function openIntro() { idx = 0; paintSlide(); introEl.hidden = false; }
+
+  nextBtn.onclick = () => { if (idx < SLIDES.length - 1) { idx++; paintSlide(); } else closeIntro(); };
+  prevBtn.onclick = () => { if (idx > 0) { idx--; paintSlide(); } };
+  document.getElementById('introSkip').onclick = closeIntro;
+  document.getElementById('replayIntro').onclick = openIntro;
+
+  // 처음 방문한 사람에게만 자동으로 인트로를 띄운다
+  let seen = false;
+  try { seen = localStorage.getItem('introSeen') === '1'; } catch (e) {}
+  if (!seen) openIntro();
 </script>
 </body>
 </html>

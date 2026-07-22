@@ -240,12 +240,42 @@ export const ROLES = [
   { id: 'analyst',  name: '정보분석가', emoji: '🔍', desc: '시세와 다른 나라 상황을 분석하고 전략을 세워요' },
 ];
 
+// 국가·지역별 '필요 물자' — 자기가 생산하지 않아 수입해야 하는 자원.
+// 이걸 보유하면 총자산에서 웃돈(NEED_PREMIUM)을 받으므로 무역 동기가 된다.
+// 모두 원자재라 쉬움 난이도에서도 그대로 작동한다. (쌀·수산물 수요가 커서 그 생산지가 유리)
+export const NATION_NEEDS = {
+  // --- 세계 국가 ---
+  korea: ['oil', 'wheat'], usa: ['copper', 'coffee'], china: ['oil', 'beef'],
+  japan: ['oil', 'iron_ore'], saudi: ['wheat', 'rice'], russia: ['wheat', 'cotton'],
+  australia: ['oil', 'rice'], brazil: ['oil', 'wheat'], vietnam: ['coal', 'cotton'],
+  india: ['oil', 'copper'], chile: ['wheat', 'timber'], france: ['oil', 'coffee'],
+  ghana: ['rice', 'copper'], canada: ['oil', 'coffee'],
+  // --- 한국 시/군/구 ---
+  jeju: ['rice_kr', 'hanwoo'], andong: ['fish_kr', 'rice_kr'], hoengseong: ['rice_kr', 'cabbage'],
+  seongju: ['rice_kr', 'fish_kr'], boseong: ['rice_kr', 'hanwoo'], gimje: ['fish_kr', 'apple'],
+  pyeongchang: ['fish_kr', 'rice_kr'], busan: ['rice_kr', 'apple'], wando: ['rice_kr', 'cabbage'],
+  uiseong: ['rice_kr', 'fish_kr'], nonsan: ['rice_kr', 'hanwoo'], yeongdong: ['rice_kr', 'fish_kr'],
+  haenam: ['rice_kr', 'hanwoo'], geumsan: ['rice_kr', 'fish_kr'], cheongyang: ['rice_kr', 'fish_kr'],
+  icheon: ['fish_kr', 'hanwoo'], cheongju: ['fish_kr', 'hanwoo'],
+  // --- 한국 시/도 ---
+  seoul: ['rice_kr', 'fish_kr'], daegu: ['rice_kr', 'fish_kr'], incheon: ['rice_kr', 'fish_kr'],
+  gwangju: ['rice_kr', 'hanwoo'], daejeon: ['rice_kr', 'fish_kr'], ulsan: ['rice_kr', 'fish_kr'],
+  sejong: ['fish_kr', 'apple'], gyeonggi: ['rice_kr', 'fish_kr'], gangwon: ['rice_kr', 'fish_kr'],
+  chungbuk: ['rice_kr', 'fish_kr'], chungnam: ['rice_kr', 'fish_kr'], jeonbuk: ['fish_kr', 'hanwoo'],
+  jeonnam: ['apple', 'hanwoo'], gyeongbuk: ['rice_kr', 'fish_kr'], gyeongnam: ['rice_kr', 'fish_kr'],
+  jeju_do: ['rice_kr', 'hanwoo'],
+};
+
+function attachNeeds(nations) {
+  return nations.map((n) => ({ ...n, needs: NATION_NEEDS[n.id] || [] }));
+}
+
 export function getPreset(mode, scale = 'county') {
   if (mode === 'city') {
     const nations = scale === 'province' ? KOREA_PROVINCES : KOREA_NATIONS;
-    return { resources: KOREA_RESOURCES, recipes: KOREA_RECIPES, nations };
+    return { resources: KOREA_RESOURCES, recipes: KOREA_RECIPES, nations: attachNeeds(nations) };
   }
-  return { resources: WORLD_RESOURCES, recipes: WORLD_RECIPES, nations: WORLD_NATIONS };
+  return { resources: WORLD_RESOURCES, recipes: WORLD_RECIPES, nations: attachNeeds(WORLD_NATIONS) };
 }
 
 // 개발용: 나라별 턴당 생산 가치 확인

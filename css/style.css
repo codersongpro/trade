@@ -717,6 +717,19 @@ tr.is-me { background: var(--brand-soft) !important; font-weight: 700; }
   color: var(--muted); text-decoration: underline; cursor: pointer; padding: 4px; }
 .linktext:hover { color: var(--ink-2); filter: none; }
 
+/* 국가별 수요(원하는 물자) */
+.need-card { border: 1.5px solid #f0dca4; background: linear-gradient(160deg, #fff, var(--gold-soft)); }
+.want-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+  margin-top: 8px; font-size: .82rem; font-weight: 700; color: var(--gold-deep);
+  background: var(--gold-soft); border: 1px solid #f0dca4; border-radius: 8px; padding: 6px 10px;
+}
+.want-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: #fff; border: 1px solid #f0dca4; border-radius: 999px;
+  padding: 2px 9px; font-weight: 700;
+}
+
 /* ============================================================
    빈 상태
    ============================================================ */

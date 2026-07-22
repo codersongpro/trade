@@ -7,6 +7,18 @@ export function fmtMoney(n) {
   return `${Math.round(n).toLocaleString('ko-KR')}원`;
 }
 
+// ---------- 게임 경제 상수 ----------
+// 국가별 '필요 물자'는 총자산 계산 시 웃돈을 쳐준다 → 서로 다른 걸 원하니 무역이 일어난다
+export const NEED_PREMIUM = 1.3;
+// 세계시장 수출: 가공품·완제품을 시세보다 높은 값에 현금화 → 가공할 이유가 생긴다
+export const EXPORT_PREMIUM = { mid: 1.15, final: 1.3 };
+
+export function isExportable(res) { return !!res && (res.tier === 'mid' || res.tier === 'final'); }
+export function exportGain(res, qty) {
+  if (!res) return 0;
+  return Math.round(res.basePrice * (EXPORT_PREMIUM[res.tier] || 1) * qty);
+}
+
 // ---------- 모둠 투표 ----------
 
 export function majorityNeeded(memberCount) {
@@ -29,9 +41,12 @@ export function voteResult(votes, memberCount) {
 
 export function calcAssets(nation, resources) {
   let total = nation.money || 0;
+  const needs = new Set(nation.needs || []);
   for (const [resId, qty] of Object.entries(nation.stock || {})) {
     const r = resources[resId];
-    if (r) total += r.basePrice * qty;
+    if (!r) continue;
+    const mult = needs.has(resId) ? NEED_PREMIUM : 1; // 우리가 원하는 물자는 더 값지게 친다
+    total += r.basePrice * qty * mult;
   }
   return total;
 }
@@ -72,6 +87,7 @@ export function processTurn(room) {
   const tradeStatus = {};
   const craftStatus = {};
   const turn = room.meta?.turn ?? 1;
+  const rword = room.meta?.mode === 'city' ? (room.meta.scale === 'province' ? '시·도' : '지역') : '국가';
 
   const nName = (id) => {
     const n = nations[id];
@@ -90,7 +106,7 @@ export function processTurn(room) {
     const seller = nations[t.from];
     const buyer = nations[t.to];
     if (!seller || !buyer) {
-      tradeStatus[tid] = { status: 'failed', failReason: '나라 정보를 찾을 수 없음' };
+      tradeStatus[tid] = { status: 'failed', failReason: `${rword} 정보를 찾을 수 없음` };
       continue;
     }
     const stock = seller.stock?.[t.resId] || 0;
@@ -152,8 +168,31 @@ export function processTurn(room) {
     logs.push(`🔧 제작 완료: ${nName(c.nation)} ${rName(recipe.out)} ×${recipe.outQty * times}`);
   }
 
-  logs.push(`🏭 ${turn}턴 종료 — 모든 나라가 특산품을 생산했습니다.`);
-  return { nations, tradeStatus, craftStatus, logs };
+  // ④ 세계시장 수출 — 제작이 끝난 뒤이므로 이번 턴에 만든 물건도 바로 수출 가능
+  const exportStatus = {};
+  const exq = Object.entries(room.exports || {})
+    .filter(([, x]) => x.status === 'queued')
+    .sort(([, a], [, b]) => (a.queuedAt || 0) - (b.queuedAt || 0));
+  for (const [xid, x] of exq) {
+    const nation = nations[x.nation];
+    const r = resources[x.resId];
+    const qty = x.qty || 0;
+    if (!nation || !r) { exportStatus[xid] = { status: 'failed', failReason: '정보를 찾을 수 없음' }; continue; }
+    const have = nation.stock?.[x.resId] || 0;
+    if (qty <= 0 || have < qty) {
+      exportStatus[xid] = { status: 'failed', failReason: `${rName(x.resId)} 재고 부족 (보유 ${have})` };
+      logs.push(`🚢❌ 수출 실패: ${nName(x.nation)} ${rName(x.resId)} ${qty}개 — 재고 부족`);
+      continue;
+    }
+    const gain = exportGain(r, qty);
+    nation.stock[x.resId] = have - qty;
+    nation.money = (nation.money || 0) + gain;
+    exportStatus[xid] = { status: 'done' };
+    logs.push(`🚢 수출 완료: ${nName(x.nation)} ${rName(x.resId)} ${qty}개 → ${fmtMoney(gain)} (세계시장)`);
+  }
+
+  logs.push(`🏭 ${turn}턴 종료 — 모든 ${rword}가 특산품을 생산했습니다.`);
+  return { nations, tradeStatus, craftStatus, exportStatus, logs };
 }
 
 // ---------- 예상 재고 ----------
