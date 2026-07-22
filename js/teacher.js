@@ -14,7 +14,7 @@ import {
   fmtMoney, calcAssets, leaderboard, applyEventChanges, processTurn,
   makeGuard, detectTampering, genRoomCode, genId, majorityNeeded,
 } from './game.js';
-import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort, regionWord, regionLabel, markScrollableTabs } from './ui.js';
+import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort, regionWord, regionLabel, markScrollableTabs, marketWord } from './ui.js';
 
 const app = document.getElementById('app');
 const tbInfo = document.getElementById('tbInfo');
@@ -970,7 +970,7 @@ async function advanceTurn() {
   const queued = Object.values(room.crafts || {}).filter((c) => c.status === 'queued').length;
   const marketQueued = Object.values(room.market_orders || {}).filter((x) => x.status === 'queued').length;
   const loanQueued = Object.values(room.loans || {}).filter((l) => l.status === 'queued').length;
-  if (!confirm(`${m.turn}턴을 진행할까요?\n\n· 대출·상환 ${loanQueued}건이 처리됩니다\n· 합의된 거래 ${accepted}건이 체결됩니다\n· 모든 ${regionLabel(m)}가 특산품을 생산합니다\n· 세계시장 매매 ${marketQueued}건이 처리됩니다${Object.keys(room.recipes || {}).length ? `\n· 예약된 제작 ${queued}건이 실행됩니다` : ''}\n\n되돌릴 수 없어요.`)) return;
+  if (!confirm(`${m.turn}턴을 진행할까요?\n\n· 대출·상환 ${loanQueued}건이 처리됩니다\n· 합의된 거래 ${accepted}건이 체결됩니다\n· 모든 ${regionLabel(m)}가 특산품을 생산합니다\n· ${marketWord(m.mode)} 매매 ${marketQueued}건이 처리됩니다${Object.keys(room.recipes || {}).length ? `\n· 예약된 제작 ${queued}건이 실행됩니다` : ''}\n\n되돌릴 수 없어요.`)) return;
 
   busy = true;
   render();

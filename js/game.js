@@ -141,7 +141,7 @@ export function processTurn(room) {
     if (!nation) { loanStatus[lid] = { status: 'failed', failReason: '정보를 찾을 수 없음' }; continue; }
     const result = l.kind === 'repay'
       ? repayBank(nation, l.amount)
-      : borrowFromBank(nation, l.amount, startingMoney);
+      : borrowFromBank(nation, l.amount, startingMoney, room.meta?.mode);
     if (!result.ok) {
       loanStatus[lid] = { status: 'failed', failReason: result.reason };
       logs.push(`🏦❌ ${l.kind === 'repay' ? '상환' : '대출'} 실패: ${nName(l.nation)} — ${result.reason}`);
@@ -273,6 +273,7 @@ export function tradeWithMarket(room, nationId, resId, qty, kind) {
   const nation = room.nations?.[nationId];
   const r = room.resources?.[resId];
   if (!nation || !r || !Number.isInteger(qty) || qty <= 0) return { ok: false, reason: '잘못된 요청' };
+  const mktWord = room.meta?.mode === 'city' ? '거래소' : '세계시장';
 
   const market = { ...(room.market || {}) };
   const net = market[resId]?.net || 0;
@@ -287,7 +288,7 @@ export function tradeWithMarket(room, nationId, resId, qty, kind) {
       ok: true,
       nation: { ...nation, money: (nation.money || 0) - cost, stock },
       market: { ...market, [resId]: { net: net + qty } },
-      log: `🛒 세계시장 구매: ${nation.emoji} ${nation.name} ${r.emoji}${r.name} ${qty}개 (개당 ${fmtMoney(price)})`,
+      log: `🛒 ${mktWord} 구매: ${nation.emoji} ${nation.name} ${r.emoji}${r.name} ${qty}개 (개당 ${fmtMoney(price)})`,
     };
   }
   if (kind === 'sell') {
@@ -301,7 +302,7 @@ export function tradeWithMarket(room, nationId, resId, qty, kind) {
       ok: true,
       nation: { ...nation, money: (nation.money || 0) + gain, stock },
       market: { ...market, [resId]: { net: net - qty } },
-      log: `💰 세계시장 판매: ${nation.emoji} ${nation.name} ${r.emoji}${r.name} ${qty}개 → ${fmtMoney(gain)}`,
+      log: `💰 ${mktWord} 판매: ${nation.emoji} ${nation.name} ${r.emoji}${r.name} ${qty}개 → ${fmtMoney(gain)}`,
     };
   }
   return { ok: false, reason: '알 수 없는 거래 종류' };
@@ -309,17 +310,18 @@ export function tradeWithMarket(room, nationId, resId, qty, kind) {
 
 // ---------- 세계 은행 ----------
 // 반환: { ok: true, nation, log } 또는 { ok: false, reason }
-export function borrowFromBank(nation, amount, startingMoney) {
+export function borrowFromBank(nation, amount, startingMoney, mode) {
   if (!Number.isInteger(amount) || amount <= 0) return { ok: false, reason: '잘못된 금액' };
   const debt = nation.debt || 0;
   const owed = Math.round(amount * (1 + LOAN_INTEREST));
   if (debt + owed > loanCap(startingMoney)) {
     return { ok: false, reason: `대출 한도를 넘어요 (한도 ${fmtMoney(loanCap(startingMoney))}, 현재 빚 ${fmtMoney(debt)})` };
   }
+  const bankWord = mode === 'city' ? '한국은행' : '세계 은행';
   return {
     ok: true,
     nation: { ...nation, money: (nation.money || 0) + amount, debt: debt + owed },
-    log: `🏦 세계 은행 대출: ${nation.emoji} ${nation.name} ${fmtMoney(amount)} 빌림 (이자 포함 ${fmtMoney(owed)} 상환 예정)`,
+    log: `🏦 ${bankWord} 대출: ${nation.emoji} ${nation.name} ${fmtMoney(amount)} 빌림 (이자 포함 ${fmtMoney(owed)} 상환 예정)`,
   };
 }
 
@@ -370,6 +372,32 @@ export function projectedStock(room, nationId) {
     add(x.resId, -x.qty);
   }
   return p;
+}
+
+// ---------- 지금 새로 팔 수 있는 양 ----------
+// 현재 재고에서, 이미 예약해 둔 제작 재료·거래 제안·세계시장 판매만큼을 미리 뺀 값.
+// 모둠원 여러 명이 동시에 같은 자원을 이중으로 팔거나 쓰기로 약속하지 못하게 막는다
+// (한 명이 벌써 제안한 만큼은 다른 모둠원 화면에도 실시간으로 반영돼 "팔 수 있는" 목록에서 빠진다).
+export function availableStock(room, nationId) {
+  const n = room.nations?.[nationId];
+  const avail = { ...(n?.stock || {}) };
+  const sub = (id, q) => { avail[id] = (avail[id] || 0) - q; };
+
+  for (const c of Object.values(room.crafts || {})) {
+    if (c.status !== 'queued' || c.nation !== nationId) continue;
+    const rec = room.recipes?.[c.recipeId];
+    if (!rec) continue;
+    for (const [id, q] of Object.entries(rec.inputs)) sub(id, q * (c.times || 1));
+  }
+  for (const t of Object.values(room.trades || {})) {
+    if (t.from !== nationId || !['draft', 'proposed', 'accepted'].includes(t.status)) continue;
+    sub(t.resId, t.qty);
+  }
+  for (const x of Object.values(room.market_orders || {})) {
+    if (x.status !== 'queued' || x.nation !== nationId || x.kind !== 'sell') continue;
+    sub(x.resId, x.qty);
+  }
+  return avail;
 }
 
 // ---------- 변조 감지 ----------

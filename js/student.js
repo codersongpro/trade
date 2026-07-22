@@ -9,13 +9,13 @@ import {
 import { ROLES } from './presets.js';
 import {
   fmtMoney, calcAssets, leaderboard, majorityNeeded, voteResult,
-  validateTradeInput, projectedStock, genId,
+  validateTradeInput, projectedStock, availableStock, genId,
   EXPORT_PREMIUM, NEED_PREMIUM,
   marketBuyPrice, marketSellPrice, LOAN_INTEREST, loanCap,
 } from './game.js';
 import {
   esc, resourceCard, statTile, crest, meter, emptyState, podium,
-  countUp, toast, fmtShort, regionLabel, markScrollableTabs,
+  countUp, toast, fmtShort, regionLabel, markScrollableTabs, marketWord, bankWord,
 } from './ui.js';
 
 const app = document.getElementById('app');
@@ -377,9 +377,9 @@ function tabMine(el) {
   </div>
 
   <div class="card">
-    <div class="card-head"><h3>🏦 세계 은행</h3>
+    <div class="card-head"><h3>🏦 ${bankWord(room.meta.mode)}</h3>
       ${debt ? `<span class="badge bad">빚 ${fmtMoney(debt)}</span>` : '<span class="badge good">빚 없음</span>'}</div>
-    <p class="small muted">돈이 부족하면 세계 은행에서 빌릴 수 있어요. 갚을 때는 <b>이자 ${Math.round(LOAN_INTEREST * 100)}%</b>가 더 붙어요.
+    <p class="small muted">돈이 부족하면 ${bankWord(room.meta.mode)}에서 빌릴 수 있어요. 갚을 때는 <b>이자 ${Math.round(LOAN_INTEREST * 100)}%</b>가 더 붙어요.
     한도는 시작 자금만큼(${fmtMoney(cap)})이에요. 대출·상환도 <b>다음 턴 진행 때</b> 처리됩니다.</p>
     ${myLoans.length ? `<div style="margin-bottom:10px">${myLoans.map(([lid, l]) => `
       <div class="item ${l.kind === 'repay' ? 'ok' : ''}"><div class="item-head">
@@ -450,21 +450,28 @@ function tabTrade(el) {
   const done = trades.filter(([, t]) => ['executed', 'failed', 'rejected', 'expired'].includes(t.status) &&
     (t.from === myNation || t.to === myNation)).sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
 
-  const sellable = Object.entries(n.stock || {}).filter(([, q]) => q > 0);
+  const available = availableStock(room, myNation);
+  const sellable = Object.entries(n.stock || {}).filter(([, q]) => q > 0)
+    .map(([r, q]) => [r, q, Math.max(0, available[r] || 0)]).filter(([, , avail]) => avail > 0);
+  const reservedAny = Object.entries(n.stock || {}).some(([r, q]) => q > 0 && Math.max(0, available[r] || 0) < q);
   const others = Object.entries(room.nations).filter(([id, x]) => id !== myNation && Object.keys(x.members || {}).length > 0);
 
   el.innerHTML = `
   <div class="card">
     <h3>📤 새 거래 제안하기</h3>
     <p class="small muted">우리가 가진 자원을 <b>팔겠다</b>고 제안합니다. 상대가 수락하면 다음 턴 진행 때 자동으로 체결돼요.</p>
-    ${sellable.length === 0 ? '<div class="banner info small">아직 팔 수 있는 자원이 없어요. 턴이 진행되면 특산품이 생산됩니다.</div>' : `
+    ${reservedAny ? `<div class="banner info small">모둠원이 이미 제안했거나 제작·판매에 쓰기로 한 만큼은 <b>팔 수 있는 수량에서 미리 빠져요</b>.
+      그래서 같은 자원을 여러 명이 동시에 이중으로 팔 걱정 없이 안전하게 제안할 수 있어요.</div>` : ''}
+    ${sellable.length === 0 ? `<div class="banner info small">${reservedAny
+        ? '가진 자원이 모두 다른 제안·제작에 이미 쓰기로 예약돼 있어요. 예약을 취소하거나 턴이 진행되길 기다려주세요.'
+        : '아직 팔 수 있는 자원이 없어요. 턴이 진행되면 특산품이 생산됩니다.'}</div>` : `
     <div class="row">
       <div class="field" style="flex:1.4"><label>누구에게</label>
         <select id="tTo"><option value="">선택하세요</option>
           ${others.map(([id, x]) => `<option value="${id}" ${draftForm.to === id ? 'selected' : ''}>${x.emoji} ${esc(x.name)}</option>`).join('')}</select></div>
       <div class="field" style="flex:1.4"><label>무엇을</label>
         <select id="tRes"><option value="">선택하세요</option>
-          ${sellable.map(([r, q]) => `<option value="${r}" ${draftForm.resId === r ? 'selected' : ''}>${rInfo(r).emoji} ${esc(rInfo(r).name)} (보유 ${q})</option>`).join('')}</select></div>
+          ${sellable.map(([r, q, avail]) => `<option value="${r}" data-avail="${avail}" ${draftForm.resId === r ? 'selected' : ''}>${rInfo(r).emoji} ${esc(rInfo(r).name)} (팔 수 있음 ${avail}${avail < q ? `, 보유 ${q}` : ''})</option>`).join('')}</select></div>
     </div>
     <div class="row">
       <div class="field"><label>수량</label><input type="number" id="tQty" min="1" value="${esc(draftForm.qty)}" placeholder="10"></div>
@@ -571,6 +578,9 @@ function bindTradeForm() {
   const g = (id) => document.getElementById(id);
   const sync = () => {
     draftForm = { to: g('tTo').value, resId: g('tRes').value, qty: g('tQty').value, price: g('tPrice').value, memo: g('tMemo').value };
+    const resSel = g('tRes');
+    const avail = parseInt(resSel.selectedOptions[0]?.dataset.avail);
+    g('tQty').max = Number.isFinite(avail) ? avail : '';
     const hint = g('priceHint');
     const qty = parseInt(draftForm.qty);
     if (draftForm.resId && qty > 0) {
@@ -590,8 +600,8 @@ function bindTradeForm() {
     const qty = parseInt(g('tQty').value), totalPrice = parseInt(g('tPrice').value);
     const err = validateTradeInput({ from: myNation, to, resId, qty, totalPrice });
     if (err) return toast(err, 'bad');
-    const have = room.nations[myNation].stock?.[resId] || 0;
-    if (qty > have) return toast(`우리가 가진 ${rInfo(resId).name}는 ${have}개예요.`, 'bad');
+    const have = Math.max(0, availableStock(room, myNation)[resId] || 0);
+    if (qty > have) return toast(`지금 팔 수 있는 ${rInfo(resId).name}는 ${have}개예요. (다른 제안·제작에 이미 쓰기로 한 만큼 제외)`, 'bad');
 
     const tid = genId('tr_');
     const soloDecide = !room.meta.teamApproval || teamSize() === 1;
@@ -661,8 +671,8 @@ function tabCraft(el) {
     <p class="small muted">자원을 조합하면 훨씬 비싼 물건이 됩니다! 예약해 두면 <b>턴이 진행될 때</b> 만들어져요.</p>
     <div class="banner info small" style="margin-bottom:0">
       아래 <b>괄호 안 숫자</b>는 이번 턴이 끝났을 때 갖게 될 양이에요.
-      턴은 <b>①대출 → ②거래 체결 → ③특산품 생산 → ④세계시장 구매 → ⑤제작 → ⑥세계시장 판매</b> 순서로 진행되니,
-      ${incoming ? '<b>지금 사기로 합의한 재료</b>와 ' : ''}이번 턴에 생산될 특산품, 그리고 <b>세계시장 구매 예약</b>까지 미리 계산해서 예약할 수 있어요.
+      턴은 <b>①대출 → ②거래 체결 → ③특산품 생산 → ④${marketWord(room.meta.mode)} 구매 → ⑤제작 → ⑥${marketWord(room.meta.mode)} 판매</b> 순서로 진행되니,
+      ${incoming ? '<b>지금 사기로 합의한 재료</b>와 ' : ''}이번 턴에 생산될 특산품, 그리고 <b>${marketWord(room.meta.mode)} 구매 예약</b>까지 미리 계산해서 예약할 수 있어요.
       모둠원끼리 동시에 예약해도 안전해요 — 이 화면은 <b>다른 모둠원이 방금 예약한 것까지 실시간으로 반영</b>해서 보여주니,
       재료가 이미 다른 사람이 쓰기로 한 만큼 빠진 상태로 계산돼요. 재료가 부족하면 예약 버튼이 자동으로 꺼져요.
     </div>
@@ -721,9 +731,9 @@ function tabCraft(el) {
 
   <div class="card">
     <div class="card-head"><h3>🌍 재료가 모자라거나, 다 만든 물건을 팔고 싶다면?</h3></div>
-    <p class="small muted">재료가 부족한 칸에 뜨는 <b>🛒 사기</b> 버튼으로 바로 세계시장에서 살 수 있어요.
-    다 만든 가공품·완제품을 팔 때는 시세보다 <b>웃돈</b>을 받아요 — <b>📈 시세</b> 탭의 세계 무역시장에서 한번에 사고팔 수 있어요.</p>
-    <button class="sm" data-goto-market>📈 세계 무역시장으로 이동</button>
+    <p class="small muted">재료가 부족한 칸에 뜨는 <b>🛒 사기</b> 버튼으로 바로 ${marketWord(room.meta.mode)}에서 살 수 있어요.
+    다 만든 가공품·완제품을 팔 때는 시세보다 <b>웃돈</b>을 받아요 — <b>📈 시세</b> 탭의 ${marketWord(room.meta.mode)}에서 한번에 사고팔 수 있어요.</p>
+    <button class="sm" data-goto-market>📈 ${marketWord(room.meta.mode)}${room.meta.mode === 'city' ? '로' : '으로'} 이동</button>
   </div>
 
   ${doneRecent.length ? `<div class="card"><h3>📜 지난 제작</h3>
@@ -790,6 +800,7 @@ function tabMarket(el) {
     .filter(([, x]) => x.status === 'queued' && x.nation === myNation)
     .sort(([, a], [, b]) => (b.queuedAt || 0) - (a.queuedAt || 0));
 
+  const marketAvail = availableStock(room, myNation);
   const marketTable = ['raw', 'mid', 'final'].map((tier) => {
     const items = Object.entries(room.resources || {}).filter(([, r]) => r.tier === tier);
     if (!items.length) return '';
@@ -798,6 +809,7 @@ function tabMarket(el) {
         <thead><tr><th>${tierName[tier]}</th><th class="num">살 때</th><th class="num">팔 때</th><th class="num">보유</th><th>수량 · 주문</th></tr></thead>
         <tbody>${items.sort((a, b) => b[1].basePrice - a[1].basePrice).map(([id, r]) => {
           const have = n.stock?.[id] || 0;
+          const avail = Math.max(0, marketAvail[id] || 0);
           const buyPrice = marketBuyPrice(room.resources, room.market, id);
           const sellPrice = marketSellPrice(room.resources, room.market, id);
           const premium = EXPORT_PREMIUM[r.tier];
@@ -805,12 +817,12 @@ function tabMarket(el) {
             <td>${r.emoji} ${esc(r.name)} <span class="tiny muted">/${esc(r.unit)}</span></td>
             <td class="num">${fmtMoney(buyPrice)}</td>
             <td class="num">${fmtMoney(sellPrice)}${premium ? ` <span class="tiny up">가공+${Math.round((premium - 1) * 100)}%</span>` : ''}</td>
-            <td class="num ${have ? '' : 'muted'}">${have}</td>
+            <td class="num ${have ? '' : 'muted'}">${have}${avail < have ? ` <span class="tiny muted">(팔 수 있음 ${avail})</span>` : ''}</td>
             <td>
               <div class="row" style="gap:4px;min-width:170px">
-                <input type="number" min="1" value="1" data-mqty="${id}" style="max-width:56px" aria-label="${esc(r.name)} 수량">
+                <input type="number" min="1" max="${Math.max(1, avail)}" value="1" data-mqty="${id}" style="max-width:56px" aria-label="${esc(r.name)} 수량">
                 <button class="sm" data-mbuy="${id}">🛒 사기</button>
-                <button class="sm ghost" data-msell="${id}" ${have ? '' : 'disabled'}>💰 팔기</button>
+                <button class="sm ghost" data-msell="${id}" ${avail ? '' : 'disabled'}>💰 팔기</button>
               </div>
             </td>
           </tr>`;
@@ -820,9 +832,9 @@ function tabMarket(el) {
 
   el.innerHTML = `
   <div class="card">
-    <div class="card-head"><h3>🌍 세계 무역시장</h3><span class="badge gold">언제든 즉시 거래</span></div>
-    <p class="small muted">다른 ${regionLabel(room.meta)}와 협상할 필요 없이 세계시장에서 바로 사고팔 수 있어요.
-    <b>한 자원을 계속 사면 값이 오르고, 계속 팔면 값이 내려가요</b> — 그러니 세계시장만 쓰기보다,
+    <div class="card-head"><h3>🌍 ${marketWord(room.meta.mode)}</h3><span class="badge gold">언제든 즉시 거래</span></div>
+    <p class="small muted">다른 ${regionLabel(room.meta)}와 협상할 필요 없이 ${marketWord(room.meta.mode)}에서 바로 사고팔 수 있어요.
+    <b>한 자원을 계속 사면 값이 오르고, 계속 팔면 값이 내려가요</b> — 그러니 ${marketWord(room.meta.mode)}만 쓰기보다,
     직접 협상하는 게 더 유리할 때가 많아요. 가공품·완제품은 팔 때 웃돈이 붙어요.
     주문은 <b>다음 턴 진행 때</b> 순서대로 처리됩니다.</p>
     ${myOrders.length ? `<div style="margin:12px 0">${myOrders.map(([oid, x]) => `
@@ -846,7 +858,13 @@ function tabMarket(el) {
 function bindMarketActions(el) {
   const qtyOf = (resId) => Math.max(1, parseInt(el.querySelector(`[data-mqty="${resId}"]`)?.value) || 1);
   el.querySelectorAll('[data-mbuy]').forEach((b) => b.onclick = () => queueMarketOrder(b.dataset.mbuy, qtyOf(b.dataset.mbuy), 'buy'));
-  el.querySelectorAll('[data-msell]').forEach((b) => b.onclick = () => queueMarketOrder(b.dataset.msell, qtyOf(b.dataset.msell), 'sell'));
+  el.querySelectorAll('[data-msell]').forEach((b) => b.onclick = () => {
+    const resId = b.dataset.msell;
+    const avail = Math.max(0, availableStock(room, myNation)[resId] || 0);
+    const qty = qtyOf(resId);
+    if (qty > avail) return toast(`지금 팔 수 있는 ${rInfo(resId).name}는 ${avail}개예요. (다른 제안·제작에 이미 쓰기로 한 만큼 제외)`, 'bad');
+    queueMarketOrder(resId, qty, 'sell');
+  });
   el.querySelectorAll('[data-mcancel]').forEach((b) => b.onclick = async () => {
     await removePath(roomCode, `market_orders/${b.dataset.mcancel}`);
   });

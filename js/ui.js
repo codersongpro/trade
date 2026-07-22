@@ -68,6 +68,12 @@ export function regionWord(mode, scale) {
   return '지역';
 }
 
+// ---------- 세계시장·은행 명칭 ----------
+// 세계 국가 모드는 '세계시장·세계 은행', 한국 지역 모드(전국·지역 단위 모두)는
+// '거래소·한국은행' — 어떤 모드든 즉시 매매·대출 기능 자체는 항상 켜져 있다.
+export function marketWord(mode) { return mode === 'city' ? '거래소' : '세계시장'; }
+export function bankWord(mode) { return mode === 'city' ? '한국은행' : '세계 은행'; }
+
 export function regionLabel(meta) { return regionWord(meta?.mode, meta?.scale); }
 
 // ---------- 숫자·금액 ----------
