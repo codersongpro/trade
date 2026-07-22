@@ -885,7 +885,7 @@ function tabChat(el) {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-    await pushTo(roomCode, `chat/${myNation}`, { text, name: myName(), by: me, ts: Date.now() });
+    await pushTo(roomCode, `chat/${myNation}`, { text, name: myName(), by: me, ts: Date.now(), turn: room.meta.turn });
     await bump('messages');
   };
   document.getElementById('chatSend').onclick = send;

@@ -226,9 +226,14 @@ function renderStep2(el) {
   </div>`;
 
   const list = document.getElementById('nationList');
+  const prodValue = (n) => Object.entries(n.production).reduce((s, [r, q]) => s + (resources[r]?.basePrice || 0) * q, 0);
   const draw = () => {
+    const values = wiz.nations.map(prodValue);
+    const avg = values.reduce((a, b) => a + b, 0) / (values.length || 1);
     list.innerHTML = wiz.nations.map((n, i) => {
-      const value = Object.entries(n.production).reduce((s, [r, q]) => s + (resources[r]?.basePrice || 0) * q, 0);
+      const value = values[i];
+      const dev = avg ? (value - avg) / avg : 0;
+      const fair = Math.abs(dev) <= 0.15;
       return `
       <div class="item">
         <div class="nation-edit">
@@ -246,7 +251,11 @@ function renderStep2(el) {
                 </div>`).join('')}
             </div>
             <button class="ghost sm" data-addprod="${i}">+ 특산품</button>
-            <div class="tiny muted" style="margin-top:6px">턴당 생산 가치 <b class="mono">${fmtMoney(value)}</b></div>
+            <div class="tiny muted" style="margin-top:6px">턴당 생산 가치 <b class="mono">${fmtMoney(value)}</b>
+              (게임 시작 시 이만큼 미리 가지고 시작해요)
+              ${fair ? '<span class="badge good">⚖️ 균형 적절</span>'
+                : `<span class="badge bad">⚠️ 평균(${fmtMoney(avg)})보다 ${dev > 0 ? '높음' : '낮음'} ${Math.abs(Math.round(dev * 100))}%</span>`}
+            </div>
           </div>
           <button class="danger sm" data-del="${i}">삭제</button>
         </div>
@@ -319,8 +328,13 @@ function renderStep3(el) {
     <h2>${wiz.mode === 'city' ? 5 : 4}. 게임 규칙 설정</h2>
     <div class="field">
       <label>시작 자금 (원)</label>
-      <input type="number" id="sMoney" value="${wiz.settings.startingMoney}" step="10000" min="0">
-      <div class="tiny muted" style="margin-top:4px">모든 ${regionWord(wiz.mode, wiz.scale)}가 똑같이 받는 시작 돈이에요.</div>
+      <input type="number" id="sMoney" value="${wiz.settings.startingMoney}" step="${wiz.settings.moneyStep}" min="0">
+      <div class="row" style="gap:6px;margin-top:7px">
+        ${[[100, '백원'], [1000, '천원'], [10000, '만원']].map(([s, label]) => `
+          <button type="button" class="ghost sm ${wiz.settings.moneyStep === s ? 'selected' : ''}" data-mstep="${s}">${label} 단위</button>`).join('')}
+      </div>
+      <div class="tiny muted" style="margin-top:4px">모든 ${regionWord(wiz.mode, wiz.scale)}가 <b>똑같이</b> 받는 시작 돈이에요.
+      저학년 학급이라면 <b>백원 단위</b>로 쉬운 숫자를 만들어 보세요.</div>
     </div>
     <div class="field">
       <label>목표 턴 수</label>
@@ -346,6 +360,11 @@ function renderStep3(el) {
 
   el.querySelectorAll('[data-ta]').forEach((b) => b.onclick = () => {
     wiz.settings.teamApproval = b.dataset.ta === '1';
+    renderWizard();
+  });
+  el.querySelectorAll('[data-mstep]').forEach((b) => b.onclick = () => {
+    wiz.settings.startingMoney = Math.max(0, parseInt(document.getElementById('sMoney').value) || 0);
+    wiz.settings.moneyStep = +b.dataset.mstep;
     renderWizard();
   });
   document.getElementById('back3').onclick = () => { wiz.step = 2; renderWizard(); };
@@ -381,7 +400,9 @@ async function createRoom() {
       debt: 0, // 세계 은행에 진 빚
       production: n.production,
       needs: (n.needs || []).filter((id) => res[id]), // 방에 있는 자원만 (난이도 호환)
-      stock: Object.fromEntries(Object.keys(res).map((r) => [r, 0])),
+      // 시작하자마자 무역할 수 있도록, 첫 턴 생산량만큼 미리 쥐여준다.
+      // 생산량은 이미 국가 간 가치가 균형 잡히게 설계돼 있어 초기 자원도 공평하다.
+      stock: Object.fromEntries(Object.keys(res).map((r) => [r, n.production[r] || 0])),
       members: {},
     };
     nation.guard = makeGuard(nation);
@@ -776,13 +797,60 @@ function tabMembers(el) {
   </div>`;
 }
 
+// 턴 진행 기록 + 모둠별 회의 채팅을 시간 순서로 합친다. 게임 중이든 끝난 뒤든
+// 같은 데이터를 그대로 쓰므로 (room.log / room.chat은 방을 삭제하지 않는 한 남아있다)
+// 활동 전체를 한 번에 되짚어볼 수 있다.
+function mergedRecords(r) {
+  const nations = r.nations || {};
+  const logs = Object.entries(r.log || {}).map(([, l]) => ({
+    ts: l.ts || 0, turn: l.turn, kind: 'log', text: l.text,
+  }));
+  const chats = [];
+  for (const [nid, msgs] of Object.entries(r.chat || {})) {
+    const n = nations[nid];
+    for (const [, m] of Object.entries(msgs || {})) {
+      chats.push({
+        ts: m.ts || 0, turn: m.turn, kind: 'chat',
+        nationName: n ? `${n.emoji} ${n.name}` : nid, who: m.name, text: m.text,
+      });
+    }
+  }
+  return [...logs, ...chats].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+function recordLine(rec) {
+  const time = rec.ts ? new Date(rec.ts).toLocaleString('ko-KR') : '';
+  if (rec.kind === 'chat') return `[${time}]${rec.turn ? ` (${rec.turn}턴)` : ''} 💬 ${rec.nationName} · ${rec.who}: ${rec.text}`;
+  return `[${time}]${rec.turn ? ` (${rec.turn}턴)` : ''} ${rec.text}`;
+}
+
+function downloadLog() {
+  const lines = mergedRecords(room).map(recordLine);
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `무역게임_기록_${roomCode}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function tabLog(el) {
-  const logs = Object.entries(room.log || {}).sort(([, a], [, b]) => (b.ts || 0) - (a.ts || 0));
-  el.innerHTML = `<div class="card"><h3>📜 진행 기록</h3>
+  const records = mergedRecords(room).slice().reverse();
+  el.innerHTML = `<div class="card">
+    <div class="card-head"><h3>📜 진행 기록</h3><button class="ghost sm" id="dlLog">📥 기록 다운로드</button></div>
+    <p class="small muted">턴 진행 기록과 모둠별 회의 채팅을 시간 순서대로 모아서 보여줘요. 게임이 끝난 뒤에도 계속 볼 수 있어요.</p>
     <div class="table-scroll" style="max-height:520px">
-      ${logs.map(([, l]) => `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
-        <span class="badge">${l.turn}턴</span> ${esc(l.text)}</div>`).join('') || '<p class="muted">기록이 없어요.</p>'}
+      ${records.map((rec) => rec.kind === 'chat'
+        ? `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <span class="badge brand">${rec.turn ? `${rec.turn}턴 · ` : ''}💬 ${esc(rec.nationName)}</span>
+            <b>${esc(rec.who)}</b>: ${esc(rec.text)}</div>`
+        : `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <span class="badge">${rec.turn}턴</span> ${esc(rec.text)}</div>`
+      ).join('') || '<p class="muted">기록이 없어요.</p>'}
     </div></div>`;
+
+  document.getElementById('dlLog').onclick = downloadLog;
 }
 
 function tabAdmin(el) {
@@ -859,10 +927,15 @@ function renderEnded() {
     </table></div>
   </div>
   <div class="card">
-    <h3>📜 전체 기록</h3>
+    <div class="card-head"><h3>📜 전체 기록</h3><button class="ghost sm" id="dlLog2">📥 기록 다운로드</button></div>
+    <p class="small muted">턴 진행 기록과 모둠별 회의 채팅을 시간 순서대로 모아서 보여줘요. 평가 자료로 다운로드해 두세요.</p>
     <div class="table-scroll" style="max-height:400px">
-      ${Object.entries(room.log || {}).sort(([, a], [, b]) => (a.ts || 0) - (b.ts || 0))
-        .map(([, l]) => `<div style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="badge">${l.turn}턴</span> ${esc(l.text)}</div>`).join('')}
+      ${mergedRecords(room).map((rec) => rec.kind === 'chat'
+        ? `<div style="padding:5px 0;border-bottom:1px solid var(--line)">
+            <span class="badge brand">${rec.turn ? `${rec.turn}턴 · ` : ''}💬 ${esc(rec.nationName)}</span>
+            <b>${esc(rec.who)}</b>: ${esc(rec.text)}</div>`
+        : `<div style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="badge">${rec.turn}턴</span> ${esc(rec.text)}</div>`
+      ).join('')}
     </div>
   </div>
   <div class="row">
@@ -870,6 +943,7 @@ function renderEnded() {
     <button class="danger" id="delRoom3">방 삭제하기</button>
   </div>`;
 
+  document.getElementById('dlLog2').onclick = downloadLog;
   document.getElementById('reopen').onclick = async () => {
     await updatePath(roomCode, 'meta', { status: 'playing' });
   };

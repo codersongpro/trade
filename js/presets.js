@@ -229,6 +229,7 @@ export function filterByDifficulty(resources, recipes, difficulty) {
 
 export const DEFAULT_SETTINGS = {
   startingMoney: 500000,    // 시작 자금 50만원
+  moneyStep: 1000,          // 시작 자금 조정 단위 (100/1,000/10,000원 — 저학년은 더 잘게)
   teamApproval: true,       // 모둠 과반 승인제
   maxTurns: 10,             // 목표 턴 수 (교사가 조기 종료 가능)
 };
