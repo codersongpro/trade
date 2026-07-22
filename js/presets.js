@@ -78,7 +78,7 @@ export const WORLD_RECIPES = {
 // 국가 프리셋: production = 매 턴 자동 생산되는 원자재
 // (턴당 생산 가치를 주석으로 표기 — 목표 5만원 ±10%)
 export const WORLD_NATIONS = [
-  { id: 'korea',   name: '한국',   emoji: '🇰🇷', production: { silicon: 5, seafood: 4 } },      // 30+24=54
+  { id: 'korea',   name: '대한민국', emoji: '🇰🇷', production: { silicon: 5, seafood: 4 } },      // 30+24=54
   { id: 'usa',     name: '미국',   emoji: '🇺🇸', production: { wheat: 6, oil: 4 } },            // 18+32=50
   { id: 'china',   name: '중국',   emoji: '🇨🇳', production: { rare_earth: 2, cotton: 3 } },    // 40+9=49
   { id: 'japan',   name: '일본',   emoji: '🇯🇵', production: { seafood: 5, silicon: 3 } },      // 30+18=48
@@ -152,6 +152,7 @@ export const KOREA_RECIPES = {
 };
 
 export const KOREA_NATIONS = [
+  { id: 'cheongju', name: '청주', emoji: '🏯', production: { rice_kr: 6, grape_kr: 5 } },      // 30+20=50 (청원생명쌀·남이포도)
   { id: 'jeju',     name: '제주',   emoji: '🍊', production: { tangerine: 12, fish_kr: 2 } },  // 36+12=48
   { id: 'andong',   name: '안동',   emoji: '🍎', production: { apple: 8, hanwoo: 1 } },        // 32+20=52
   { id: 'hoengseong', name: '횡성', emoji: '🐂', production: { hanwoo: 2, milk: 4 } },         // 40+12=52
@@ -168,11 +169,11 @@ export const KOREA_NATIONS = [
   { id: 'geumsan',  name: '금산',   emoji: '🌿', production: { ginseng: 3 } },                 // 45
   { id: 'cheongyang', name: '청양', emoji: '🌶️', production: { pepper: 10 } },                 // 50
   { id: 'icheon',   name: '이천',   emoji: '🍚', production: { rice_kr: 10 } },                // 50 (김제와 쌀 경쟁 구도)
-  { id: 'cheongju', name: '청주', emoji: '🏯', production: { rice_kr: 6, grape_kr: 5 } },      // 30+20=50 (청원생명쌀·남이포도)
 ];
 
 // 시/도 단위 프리셋 — 17개 광역자치단체. 자원·레시피는 시/군/구 모드와 동일하게 공유한다.
 export const KOREA_PROVINCES = [
+  { id: 'chungbuk', name: '충청북도',     emoji: '🌶️', production: { pepper: 6, apple: 5 } },               // 30+20=50 (괴산 고추·충주 사과)
   { id: 'seoul',    name: '서울특별시',   emoji: '🏙️', production: { ginseng: 3 } },                        // 45 (경동시장 약령시)
   { id: 'busan',    name: '부산광역시',   emoji: '🌊', production: { fish_kr: 8 } },                        // 48
   { id: 'daegu',    name: '대구광역시',   emoji: '🍎', production: { apple: 12 } },                         // 48
@@ -183,7 +184,6 @@ export const KOREA_PROVINCES = [
   { id: 'sejong',   name: '세종특별자치시', emoji: '🌾', production: { rice_kr: 10 } },                      // 50
   { id: 'gyeonggi', name: '경기도',       emoji: '🍇', production: { grape_kr: 12 } },                      // 48
   { id: 'gangwon',  name: '강원특별자치도', emoji: '🥔', production: { potato: 10, hanwoo: 1 } },            // 30+20=50
-  { id: 'chungbuk', name: '충청북도',     emoji: '🌶️', production: { pepper: 6, apple: 5 } },               // 30+20=50 (괴산 고추·충주 사과)
   { id: 'chungnam', name: '충청남도',     emoji: '🌿', production: { ginseng: 3 } },                        // 45 (금산 인삼)
   { id: 'jeonbuk',  name: '전북특별자치도', emoji: '🌶️', production: { pepper: 8, rice_kr: 2 } },            // 40+10=50 (순창 고추장 재료)
   { id: 'jeonnam',  name: '전라남도',     emoji: '🐟', production: { rice_kr: 6, fish_kr: 3 } },             // 30+18=48 (곡창지대+수산업)

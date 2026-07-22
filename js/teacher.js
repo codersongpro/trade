@@ -136,7 +136,7 @@ function renderStep1(el) {
     <div class="grid grid-2" style="margin-top:12px">
       <button class="pick ${wiz.mode === 'country' ? 'selected' : ''}" data-mode="country">
         <div class="pick-title">🌍 세계 국가</div>
-        <div class="pick-desc">한국·미국·브라질 등 14개 국가. 석유·철광석·반도체 등 국제 무역을 체험해요.</div>
+        <div class="pick-desc">대한민국·미국·브라질 등 14개 국가. 석유·철광석·반도체 등 국제 무역을 체험해요.</div>
       </button>
       <button class="pick ${wiz.mode === 'city' ? 'selected' : ''}" data-mode="city">
         <div class="pick-title">🇰🇷 한국 지역</div>
