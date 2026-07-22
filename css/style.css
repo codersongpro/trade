@@ -673,17 +673,49 @@ tr.is-me { background: var(--brand-soft) !important; font-weight: 700; }
    ============================================================ */
 
 .room-code {
-  font-size: clamp(2.6rem, 10vw, 5.4rem);
+  font-size: clamp(2.2rem, 8vw, 4rem);
   font-weight: 900; letter-spacing: .14em;
   color: var(--sea-800);
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
   background: linear-gradient(160deg, #fff, var(--gold-soft));
   border: 3px dashed var(--gold);
   border-radius: 20px;
-  padding: 18px 28px 18px 42px;
+  padding: 14px 22px 14px 34px;
   display: inline-block;
   box-shadow: var(--shadow-pop);
 }
+
+/* 학생 초대 영역: QR + 코드 나란히 */
+.join-grid {
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  flex-wrap: wrap; margin-top: 16px;
+}
+.join-or { color: var(--muted); font-weight: 800; font-size: .9rem; }
+.qr-box {
+  width: 240px; height: 240px; display: grid; place-items: center;
+  background: #fff; border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--shadow-card); padding: 10px; margin: 0 auto;
+}
+.qr-box img { width: 100%; height: 100%; image-rendering: pixelated; border-radius: 6px; }
+.join-link {
+  font-size: .82rem; word-break: break-all; color: var(--ink-2);
+  background: var(--card-2); border: 1px solid var(--line-soft);
+  border-radius: 8px; padding: 8px 10px; max-width: 320px; margin: 0 auto;
+}
+@media (max-width: 560px) { .join-or { display: none; } }
+
+/* 학생 입장: QR/링크로 코드가 이미 채워진 경우 */
+.joined-code { text-align: center; margin-bottom: 18px; }
+.code-badge {
+  display: inline-block; margin: 4px 0 8px;
+  font-size: 1.7rem; font-weight: 900; letter-spacing: .12em;
+  color: var(--good); background: var(--good-soft);
+  border: 2px solid #b6e7d1; border-radius: 12px; padding: 8px 18px 8px 26px;
+}
+.code-badge .ok-check { font-size: 1.1rem; }
+.linktext { display: block; margin: 0 auto; background: none; border: none; box-shadow: none;
+  color: var(--muted); text-decoration: underline; cursor: pointer; padding: 4px; }
+.linktext:hover { color: var(--ink-2); filter: none; }
 
 /* ============================================================
    빈 상태

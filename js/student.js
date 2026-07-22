@@ -26,6 +26,7 @@ let tab = 'mine';
 let seenEvent = null;
 let lastHud = {};   // 직전 턴의 현금·자산 (숫자 카운트업 시작점)
 let draftForm = { to: '', resId: '', qty: '', price: '', memo: '' };
+let codeFromUrl = false;   // QR·링크로 들어와 코드가 이미 채워졌는가
 
 leaveBtn.onclick = () => {
   if (!confirm('게임에서 나갈까요? 다시 코드를 입력하면 돌아올 수 있어요.')) return;
@@ -37,6 +38,7 @@ leaveBtn.onclick = () => {
 async function boot() {
   const params = new URLSearchParams(location.search);
   const urlCode = (params.get('code') || '').toUpperCase();
+  codeFromUrl = urlCode.length === 6;
   const s = loadSession();
 
   if (s?.code && s?.nationId && (!urlCode || urlCode === s.code)) {
@@ -77,27 +79,43 @@ async function renderJoin(preCode) {
 }
 
 function renderJoinStep1() {
+  // QR·링크로 들어왔으면 코드는 이미 채워져 있으니 이름만 받는다
+  const linked = codeFromUrl && join.code.length === 6;
+
   app.innerHTML = `<div class="wrap-narrow" style="padding:0">
     <div class="card">
       <h2>🚪 게임에 입장하기</h2>
+      ${linked ? `
+      <div class="joined-code">
+        <span class="tiny muted">입장할 방</span>
+        <div class="code-badge mono">${esc(join.code)} <span class="ok-check">✓</span></div>
+        <button class="linktext tiny" id="editCode">코드가 다른가요? 직접 입력</button>
+      </div>` : `
       <div class="field">
         <label>방 코드 (6자리)</label>
         <input class="code-input" id="jCode" maxlength="6" value="${esc(join.code)}" placeholder="ABC123" autocomplete="off">
-      </div>
+      </div>`}
       <div class="field">
         <label>내 이름</label>
         <input id="jName" value="${esc(join.name)}" placeholder="예: 김민준" maxlength="12" autocomplete="off">
         <div class="tiny muted" style="margin-top:4px">모둠원끼리 알아볼 수 있는 이름을 적어주세요.</div>
       </div>
-      <button class="lg block" id="jNext">다음 →</button>
+      <button class="lg block" id="jNext">${linked ? '입장하기 →' : '다음 →'}</button>
     </div>
   </div>`;
 
   const codeEl = document.getElementById('jCode');
-  codeEl.addEventListener('input', () => { codeEl.value = codeEl.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  if (codeEl) codeEl.addEventListener('input', () => { codeEl.value = codeEl.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+
+  const editBtn = document.getElementById('editCode');
+  if (editBtn) editBtn.onclick = () => { codeFromUrl = false; join.code = ''; renderJoinStep1(); };
+
+  const nameEl = document.getElementById('jName');
+  if (linked && nameEl) nameEl.focus();
+
   document.getElementById('jNext').onclick = async () => {
-    join.code = codeEl.value.trim();
-    join.name = document.getElementById('jName').value.trim();
+    if (codeEl) join.code = codeEl.value.trim();
+    join.name = nameEl.value.trim();
     if (join.code.length !== 6) return toast('6자리 코드를 정확히 입력해 주세요.', 'bad');
     if (!join.name) return toast('이름을 입력해 주세요.', 'bad');
     await renderJoin(join.code);

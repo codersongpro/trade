@@ -81,6 +81,32 @@ function loadWizNations() {
   wiz.nations = preset.nations.map((n) => ({ ...n, production: { ...n.production } }));
 }
 
+// 현재 모드/단위의 전체 프리셋 나라 목록 (특산품이 이미 채워져 있음)
+function presetNationList() { return getPreset(wiz.mode, wiz.scale).nations; }
+
+// 아직 안 쓴 프리셋 나라 하나를 (특산품째로) 복제해 반환. 다 썼으면 null
+function nextPresetNation() {
+  const used = new Set(wiz.nations.map((n) => n.id));
+  const p = presetNationList().find((n) => !used.has(n.id));
+  return p ? { ...p, production: { ...p.production } } : null;
+}
+
+// 나라 한 개 추가: 실제 대표 나라(특산품 포함)를 우선 채우고, 없으면 빈 나라
+function addOneNation() {
+  const preset = nextPresetNation();
+  if (preset) { wiz.nations.push(preset); return; }
+  const { resources } = wizResources();
+  const rawIds = Object.entries(resources).filter(([, r]) => r.tier === 'raw').map(([id]) => id);
+  wiz.nations.push({ id: genId('n_'), name: '새 나라', emoji: '🏳️', production: { [rawIds[0]]: 5 } });
+}
+
+// 나라 수를 target으로 맞춘다 (줄이면 뒤에서 제거, 늘리면 대표 나라 자동 추가)
+function setNationCount(target) {
+  target = Math.max(2, Math.floor(target) || 2);
+  while (wiz.nations.length > target) wiz.nations.pop();
+  while (wiz.nations.length < target) addOneNation();
+}
+
 function wizResources() {
   const p = getPreset(wiz.mode, wiz.scale);
   return filterByDifficulty(p.resources, p.recipes, wiz.difficulty);
@@ -179,10 +205,20 @@ function renderStep2(el) {
       <h2>${wiz.mode === 'city' ? 4 : 3}. 참가할 ${regionWord(wiz.mode, wiz.scale)} 설정</h2>
       <span class="badge brand">${wiz.nations.length}개</span>
     </div>
-    <p class="small muted">학생 모둠 수만큼 남기고 나머지는 삭제하세요. 특산품과 생산량도 바꿀 수 있어요.
-    <b>턴당 생산 가치</b>가 비슷할수록 공평합니다.</p>
+    <p class="small muted">학생 모둠 수에 맞춰 <b>참가 ${regionWord(wiz.mode, wiz.scale)} 수</b>를 정하세요.
+    대표 ${regionWord(wiz.mode, wiz.scale)}가 특산품과 함께 자동으로 채워집니다. 특산품·생산량은 아래에서 바꿀 수 있어요.</p>
+    <div class="field" style="margin-bottom:14px">
+      <label>참가 ${regionWord(wiz.mode, wiz.scale)} 수</label>
+      <div class="row" style="align-items:center;gap:8px;max-width:220px">
+        <button class="ghost" id="cntMinus" aria-label="줄이기" style="min-width:44px">−</button>
+        <input type="number" id="nationCount" min="2" max="${presetNationList().length}"
+               value="${wiz.nations.length}" style="text-align:center" aria-label="참가 나라 수">
+        <button class="ghost" id="cntPlus" aria-label="늘리기" style="min-width:44px">+</button>
+      </div>
+      <div class="tiny muted" style="margin-top:5px">최대 ${presetNationList().length}개까지 대표 ${regionWord(wiz.mode, wiz.scale)}가 자동으로 채워져요.</div>
+    </div>
     <div id="nationList" class="grid" style="gap:10px"></div>
-    <button class="ghost sm" id="addNation" style="margin-top:10px">+ 추가하기</button>
+    <button class="ghost sm" id="addNation" style="margin-top:10px">+ 하나 더 추가</button>
   </div>
   <div class="row">
     <button class="ghost" id="back2">← 이전</button>
@@ -253,15 +289,26 @@ function renderStep2(el) {
     list.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => {
       if (wiz.nations.length <= 2) { toast('최소 2개는 있어야 무역이 가능해요.', 'bad'); return; }
       wiz.nations.splice(+b.dataset.del, 1);
+      const cnt = document.getElementById('nationCount'); if (cnt) cnt.value = wiz.nations.length;
+      const badge = document.querySelector('.card-head .badge.brand'); if (badge) badge.textContent = `${wiz.nations.length}개`;
       draw();
     });
   };
 
   draw();
-  document.getElementById('addNation').onclick = () => {
-    wiz.nations.push({ id: genId('n_'), name: '새 나라', emoji: '🏳️', production: { [rawIds[0]]: 5 } });
+
+  const countEl = document.getElementById('nationCount');
+  const applyCount = (target) => {
+    setNationCount(target);
+    countEl.value = wiz.nations.length;
+    document.querySelector('.card-head .badge.brand').textContent = `${wiz.nations.length}개`;
     draw();
   };
+  countEl.onchange = () => applyCount(parseInt(countEl.value) || wiz.nations.length);
+  document.getElementById('cntMinus').onclick = () => applyCount(wiz.nations.length - 1);
+  document.getElementById('cntPlus').onclick = () => applyCount(wiz.nations.length + 1);
+  document.getElementById('addNation').onclick = () => { applyCount(wiz.nations.length + 1); };
+
   document.getElementById('back2').onclick = () => { wiz.step = 1; renderWizard(); };
   document.getElementById('next2').onclick = () => { wiz.step = 3; renderWizard(); };
 }
@@ -380,17 +427,31 @@ function renderLobby() {
   const nations = room.nations || {};
   const joined = Object.values(nations).filter((n) => Object.keys(n.members || {}).length > 0).length;
   const players = Object.values(nations).reduce((s, n) => s + Object.keys(n.members || {}).length, 0);
-  const url = location.href.replace(/teacher\.html.*$/, 'index.html');
+  // 학생 전용 입장 링크 — 코드가 들어 있어 스캔·클릭하면 코드 입력 없이 바로 입장
+  const base = location.href.replace(/teacher\.html.*$/, '');
+  const joinUrl = `${base}student.html?code=${roomCode}`;
 
   app.innerHTML = `
   <div class="card center">
-    <h2>학생들에게 이 코드를 알려주세요</h2>
-    <div class="room-code">${roomCode}</div>
-    <p class="muted small" style="margin-top:14px">접속 주소: <b>${esc(url)}</b></p>
-    <div class="row" style="justify-content:center;max-width:420px;margin:14px auto 0">
-      <button class="ghost" id="copyCode">📋 코드 복사</button>
-      <button class="ghost" id="copyUrl">🔗 주소 복사</button>
+    <h2>학생들을 초대하세요</h2>
+    <div class="join-grid">
+      <div>
+        <p class="tiny muted" style="margin:0 0 4px">① QR 코드를 스캔하면 바로 입장</p>
+        <div id="qrBox" class="qr-box"><div class="tiny muted">QR 코드 만드는 중…</div></div>
+      </div>
+      <div class="join-or">또는</div>
+      <div>
+        <p class="tiny muted" style="margin:0 0 4px">② 코드를 직접 입력</p>
+        <div class="room-code">${roomCode}</div>
+        <p class="tiny muted" style="margin:10px 0 4px">학생 입장 주소</p>
+        <div class="join-link mono">${esc(joinUrl)}</div>
+      </div>
     </div>
+    <div class="row" style="justify-content:center;max-width:520px;margin:16px auto 0">
+      <button class="ghost" id="copyCode">📋 코드 복사</button>
+      <button class="ghost" id="copyUrl">🔗 학생 링크 복사</button>
+    </div>
+    <p class="tiny muted" style="margin-top:12px">학생이 자기 기기에서 이 주소를 열거나 QR을 스캔하면 이름만 입력하고 나라를 고르면 됩니다.</p>
   </div>
 
   <div class="card">
@@ -425,7 +486,8 @@ function renderLobby() {
   </div>`;
 
   document.getElementById('copyCode').onclick = () => copy(roomCode, '코드를 복사했어요!');
-  document.getElementById('copyUrl').onclick = () => copy(url, '주소를 복사했어요!');
+  document.getElementById('copyUrl').onclick = () => copy(joinUrl, '학생 링크를 복사했어요!');
+  renderQR(document.getElementById('qrBox'), joinUrl);
   document.getElementById('startGame').onclick = async () => {
     await updatePath(roomCode, 'meta', { status: 'playing' });
     await log(`🚀 게임을 시작합니다! (1턴)`);
@@ -875,6 +937,26 @@ function copy(text, msg) {
     () => toast(msg, 'good'),
     () => prompt('복사해서 사용하세요:', text)
   );
+}
+
+// QR 코드 생성 — 라이브러리는 필요할 때만 CDN에서 불러온다.
+// 네트워크가 막혀 실패해도 코드·링크가 그대로 있으므로 안내만 바꾼다.
+let _qrLib = null;
+async function renderQR(box, text) {
+  if (!box) return;
+  try {
+    if (!_qrLib) {
+      const mod = await import('https://esm.sh/qrcode@1.5.4');
+      _qrLib = mod.default || mod;
+    }
+    const dataUrl = await _qrLib.toDataURL(text, {
+      width: 260, margin: 1, errorCorrectionLevel: 'M',
+      color: { dark: '#14203a', light: '#ffffff' },
+    });
+    box.innerHTML = `<img src="${dataUrl}" alt="학생 입장 QR 코드" width="220" height="220">`;
+  } catch (err) {
+    box.innerHTML = '<div class="tiny muted">QR을 못 불러왔어요.<br>옆의 코드나 링크를 이용해 주세요.</div>';
+  }
 }
 
 // 모든 선언이 끝난 뒤 시작 (Firebase 미설정이면 안내 화면만 남긴다)
