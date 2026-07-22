@@ -7,7 +7,7 @@ import {
   roomExists, readAny, writeAny, saveTeacher, loadTeacher, clearTeacher,
 } from './db.js';
 import {
-  getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES,
+  getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES, MONEY_UNIT_PRESETS,
 } from './presets.js';
 import { getEvents, availableEvents, drawRandomEvent, eventCategory } from './events.js';
 import {
@@ -140,7 +140,7 @@ function renderStep1(el) {
       </button>
       <button class="pick ${wiz.mode === 'city' ? 'selected' : ''}" data-mode="city">
         <div class="pick-title">🇰🇷 한국 지역</div>
-        <div class="pick-desc">제주·안동·부산 등 시/군/구, 또는 서울·경기 등 시/도 단위로 무역해요.</div>
+        <div class="pick-desc">제주·안동·부산 등 시/군/구, 서울·경기 등 시/도, 또는 충북 11개 시/군 단위로 무역해요.</div>
       </button>
     </div>
   </div>
@@ -226,7 +226,7 @@ function renderStep2(el) {
   </div>`;
 
   const list = document.getElementById('nationList');
-  const prodValue = (n) => Object.entries(n.production).reduce((s, [r, q]) => s + (resources[r]?.basePrice || 0) * q, 0);
+  const prodValue = (n) => Object.entries(n.production).reduce((s, [r, q]) => s + (resources[r]?.basePrice || 0) * q, 0) * (wiz.settings.priceScale || 1);
   const draw = () => {
     const values = wiz.nations.map(prodValue);
     const avg = values.reduce((a, b) => a + b, 0) / (values.length || 1);
@@ -334,6 +334,7 @@ function renderStep3(el) {
           <button type="button" class="ghost sm ${wiz.settings.moneyStep === s ? 'selected' : ''}" data-mstep="${s}">${label} 단위</button>`).join('')}
       </div>
       <div class="tiny muted" style="margin-top:4px">모든 ${regionWord(wiz.mode, wiz.scale)}가 <b>똑같이</b> 받는 시작 돈이에요.
+      단위를 바꾸면 시작 자금뿐 아니라 <b>모든 자원의 시세도 같은 비율로</b> 함께 줄어들어요.
       저학년 학급이라면 <b>백원 단위</b>로 쉬운 숫자를 만들어 보세요.</div>
     </div>
     <div class="field">
@@ -363,8 +364,11 @@ function renderStep3(el) {
     renderWizard();
   });
   el.querySelectorAll('[data-mstep]').forEach((b) => b.onclick = () => {
-    wiz.settings.startingMoney = Math.max(0, parseInt(document.getElementById('sMoney').value) || 0);
-    wiz.settings.moneyStep = +b.dataset.mstep;
+    const s = +b.dataset.mstep;
+    const preset = MONEY_UNIT_PRESETS[s];
+    wiz.settings.moneyStep = s;
+    wiz.settings.startingMoney = preset.startingMoney;
+    wiz.settings.priceScale = preset.priceScale;
     renderWizard();
   });
   document.getElementById('back3').onclick = () => { wiz.step = 2; renderWizard(); };
@@ -383,8 +387,13 @@ function renderStep3(el) {
 async function createRoom() {
   const { resources, recipes } = wizResources();
   // 이벤트로 시세가 변해도 원래 가격을 기억해 두어 급변을 제한한다
+  // 시작 자금 단위(백원/천원/만원)에 맞춰 모든 시세도 같은 비율로 줄인다
+  const scale = wiz.settings.priceScale || 1;
   const res = {};
-  for (const [id, r] of Object.entries(resources)) res[id] = { ...r, originalPrice: r.basePrice };
+  for (const [id, r] of Object.entries(resources)) {
+    const price = Math.max(1, Math.round(r.basePrice * scale));
+    res[id] = { ...r, basePrice: price, originalPrice: price };
+  }
 
   let code;
   for (let i = 0; i < 10; i++) {

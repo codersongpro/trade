@@ -607,6 +607,7 @@ label { display: block; font-size: .82rem; font-weight: 700; color: var(--ink-2)
 .my-bar .stat-tile {
   background: rgba(255, 255, 255, .13);
   border-color: rgba(255, 255, 255, .2);
+  flex: 0 1 auto; min-width: max-content;
 }
 .my-bar .stat-label, .my-bar .stat-sub { color: #b9c6e4; }
 .my-bar .stat-value { color: #fff; }

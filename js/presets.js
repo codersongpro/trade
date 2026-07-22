@@ -114,6 +114,8 @@ export const KOREA_RESOURCES = {
   hanwoo:    { name: '한우',     emoji: '🐂', unit: '세트', tier: 'raw', basePrice: 20000 },
   fish_kr:   { name: '수산물',   emoji: '🐟', unit: '상자', tier: 'raw', basePrice: 6000 },
   abalone:   { name: '전복',     emoji: '🦪', unit: '상자', tier: 'raw', basePrice: 12000 },
+  jujube:    { name: '대추',     emoji: '🌰', unit: '상자', tier: 'raw', basePrice: 6000 },
+  watermelon:{ name: '수박',     emoji: '🍉', unit: '통',   tier: 'raw', basePrice: 5000 },
 
   // 1차 가공품
   kimchi:    { name: '김치',     emoji: '🥡', unit: '통',   tier: 'mid', basePrice: 20000 },
@@ -192,11 +194,27 @@ export const KOREA_PROVINCES = [
   { id: 'jeju_do',  name: '제주특별자치도', emoji: '🍊', production: { tangerine: 12, fish_kr: 2 } },        // 36+12=48
 ];
 
+// 충북 시/군 단위 프리셋 — 충청북도를 이루는 11개 시/군(3시 8군). 자원·레시피는 시/군/구 모드와 공유한다.
+export const CHUNGBUK_NATIONS = [
+  { id: 'cb_cheongju',    name: '청주시', emoji: '🏯', production: { rice_kr: 6, grape_kr: 5 } },  // 30+20=50 (청원생명쌀·남이포도)
+  { id: 'cb_chungju',     name: '충주시', emoji: '🍎', production: { apple: 12 } },                 // 48 (충주사과)
+  { id: 'cb_jecheon',     name: '제천시', emoji: '🌿', production: { ginseng: 3 } },                 // 45 (제천 한방)
+  { id: 'cb_boeun',       name: '보은군', emoji: '🌰', production: { jujube: 8 } },                  // 48 (보은대추)
+  { id: 'cb_okcheon',     name: '옥천군', emoji: '🍓', production: { strawberry: 10 } },             // 50 (옥천딸기)
+  { id: 'cb_yeongdong',   name: '영동군', emoji: '🍇', production: { grape_kr: 12 } },               // 48 (영동포도)
+  { id: 'cb_jeungpyeong', name: '증평군', emoji: '🌿', production: { ginseng: 3 } },                 // 45 (증평 인삼)
+  { id: 'cb_jincheon',    name: '진천군', emoji: '🌾', production: { rice_kr: 10 } },                // 50 (진천eco쌀)
+  { id: 'cb_goesan',      name: '괴산군', emoji: '🌶️', production: { pepper: 10 } },                 // 50 (괴산고추)
+  { id: 'cb_eumseong',    name: '음성군', emoji: '🍉', production: { watermelon: 10 } },             // 50 (음성수박)
+  { id: 'cb_danyang',     name: '단양군', emoji: '🧄', production: { garlic: 12 } },                 // 48 (단양마늘)
+];
+
 // ---------- 지역 단위 ----------
-// county: 시/군/구 (기존) / province: 시/도
+// county: 시/군/구 (전국) / province: 시/도 (전국) / chungbuk: 충북 시/군 (충청북도 내부)
 export const SCALES = [
   { id: 'county',   name: '시·군·구', emoji: '🏘️', desc: '제주·안동·부산 등 17개 시/군/구. 좁은 단위의 지역 특산물로 무역해요.' },
   { id: 'province', name: '시·도',   emoji: '🗺️', desc: '서울·경기·부산 등 17개 시/도. 더 넓은 단위로 무역해요.' },
+  { id: 'chungbuk', name: '충북 시·군', emoji: '🌶️', desc: '청주·충주·제천 등 충청북도 안의 11개 시/군. 도 안에서 가깝게 무역해요.' },
 ];
 
 // ---------- 난이도 ----------
@@ -227,9 +245,18 @@ export function filterByDifficulty(resources, recipes, difficulty) {
 
 // ---------- 공통 설정 ----------
 
+// 시작 자금 단위(백원/천원/만원)를 고르면 시작 자금과 전체 시세가 함께 그 단위에 맞게 줄어든다.
+// 만원 단위가 원래 게임의 기본 규모(스케일 1)이고, 천원·백원 단위는 각각 1/10, 1/100로 줄인다.
+export const MONEY_UNIT_PRESETS = {
+  100:   { startingMoney: 5000,   priceScale: 0.01 },
+  1000:  { startingMoney: 50000,  priceScale: 0.1 },
+  10000: { startingMoney: 500000, priceScale: 1 },
+};
+
 export const DEFAULT_SETTINGS = {
   startingMoney: 500000,    // 시작 자금 50만원
-  moneyStep: 1000,          // 시작 자금 조정 단위 (100/1,000/10,000원 — 저학년은 더 잘게)
+  moneyStep: 10000,         // 시작 자금 조정 단위 (100/1,000/10,000원 — 저학년은 더 잘게)
+  priceScale: 1,            // 전체 시세 배율 (moneyStep과 함께 바뀜)
   teamApproval: true,       // 모둠 과반 승인제
   maxTurns: 10,             // 목표 턴 수 (교사가 조기 종료 가능)
 };
@@ -265,15 +292,22 @@ export const NATION_NEEDS = {
   chungbuk: ['rice_kr', 'fish_kr'], chungnam: ['rice_kr', 'fish_kr'], jeonbuk: ['fish_kr', 'hanwoo'],
   jeonnam: ['apple', 'hanwoo'], gyeongbuk: ['rice_kr', 'fish_kr'], gyeongnam: ['rice_kr', 'fish_kr'],
   jeju_do: ['rice_kr', 'hanwoo'],
+  // --- 충북 시/군 ---
+  cb_cheongju: ['fish_kr', 'hanwoo'], cb_chungju: ['fish_kr', 'rice_kr'], cb_jecheon: ['rice_kr', 'fish_kr'],
+  cb_boeun: ['rice_kr', 'fish_kr'], cb_okcheon: ['rice_kr', 'hanwoo'], cb_yeongdong: ['rice_kr', 'fish_kr'],
+  cb_jeungpyeong: ['rice_kr', 'fish_kr'], cb_jincheon: ['fish_kr', 'hanwoo'], cb_goesan: ['rice_kr', 'fish_kr'],
+  cb_eumseong: ['rice_kr', 'hanwoo'], cb_danyang: ['rice_kr', 'fish_kr'],
 };
 
 function attachNeeds(nations) {
   return nations.map((n) => ({ ...n, needs: NATION_NEEDS[n.id] || [] }));
 }
 
+const KOREA_NATIONS_BY_SCALE = { county: KOREA_NATIONS, province: KOREA_PROVINCES, chungbuk: CHUNGBUK_NATIONS };
+
 export function getPreset(mode, scale = 'county') {
   if (mode === 'city') {
-    const nations = scale === 'province' ? KOREA_PROVINCES : KOREA_NATIONS;
+    const nations = KOREA_NATIONS_BY_SCALE[scale] || KOREA_NATIONS;
     return { resources: KOREA_RESOURCES, recipes: KOREA_RECIPES, nations: attachNeeds(nations) };
   }
   return { resources: WORLD_RESOURCES, recipes: WORLD_RECIPES, nations: attachNeeds(WORLD_NATIONS) };

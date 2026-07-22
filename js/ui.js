@@ -63,7 +63,9 @@ export function resourceCard(res, opts = {}) {
 
 export function regionWord(mode, scale) {
   if (mode !== 'city') return '국가';
-  return scale === 'province' ? '시·도' : '지역';
+  if (scale === 'province') return '시·도';
+  if (scale === 'chungbuk') return '시·군';
+  return '지역';
 }
 
 export function regionLabel(meta) { return regionWord(meta?.mode, meta?.scale); }

@@ -117,7 +117,9 @@ export function processTurn(room) {
   const tradeStatus = {};
   const craftStatus = {};
   const turn = room.meta?.turn ?? 1;
-  const rword = room.meta?.mode === 'city' ? (room.meta.scale === 'province' ? '시·도' : '지역') : '국가';
+  const rword = room.meta?.mode === 'city'
+    ? (room.meta.scale === 'province' ? '시·도' : room.meta.scale === 'chungbuk' ? '시·군' : '지역')
+    : '국가';
 
   const nName = (id) => {
     const n = nations[id];
