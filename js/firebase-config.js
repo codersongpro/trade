@@ -12,13 +12,14 @@
 // ============================================================
 
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000",
+  apiKey: "AIzaSyDUhFkAxnn_Mdfs85HSrnOwL5P0hMhrWTc",
+  authDomain: "trade-342dd.firebaseapp.com",
+  databaseURL: "https://trade-342dd-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "trade-342dd",
+  storageBucket: "trade-342dd.firebasestorage.app",
+  messagingSenderId: "935752856087",
+  appId: "1:935752856087:web:c0500954946ffcb82d6252",
+  measurementId: "G-0PG93H4GX5",
 };
 
 export function isConfigured() {
