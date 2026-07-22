@@ -13,11 +13,45 @@
   <span class="title">👩‍🏫 무역 게임 · 교사</span>
   <span id="tbInfo" class="muted small"></span>
   <span class="spacer"></span>
+  <button class="btn ghost sm" id="soundToggle" type="button" aria-label="배경음악 켜기/끄기">🔊 음악</button>
   <a class="btn ghost sm" href="index.html">처음으로</a>
 </div>
 
 <div id="app" class="wrap"><div class="loading">불러오는 중…</div></div>
 
+<audio id="bgmAudio" src="/assets/audio/bgm.mp3" preload="auto" loop></audio>
+<script>
+  // 배경음악: 프로젝터·교실 스피커로 재생될 교사 화면에서만 틀어요.
+  // 학생들 각자 기기에서까지 재생하면 여러 소리가 겹쳐 울리니 학생 화면엔 넣지 않습니다.
+  (() => {
+    const audio = document.getElementById('bgmAudio');
+    const btn = document.getElementById('soundToggle');
+    let muted = false;
+    try { muted = localStorage.getItem('musicMuted') === '1'; } catch (e) {}
+
+    const paint = () => {
+      btn.textContent = muted ? '🔇 음악' : '🔊 음악';
+      btn.setAttribute('aria-label', muted ? '배경음악 켜기' : '배경음악 끄기');
+    };
+    paint();
+
+    const tryPlay = () => {
+      if (muted) return;
+      audio.play().catch(() => {
+        const retry = () => { audio.play().catch(() => {}); document.removeEventListener('click', retry); };
+        document.addEventListener('click', retry, { once: true });
+      });
+    };
+    tryPlay();
+
+    btn.onclick = () => {
+      muted = !muted;
+      try { localStorage.setItem('musicMuted', muted ? '1' : '0'); } catch (e) {}
+      paint();
+      if (muted) audio.pause(); else tryPlay();
+    };
+  })();
+</script>
 <script type="module" src="js/teacher.js"></script>
 </body>
 </html>

@@ -15,8 +15,38 @@
   <span class="title">👩‍🏫 교사</span>
   <span id="tbInfo" class="muted small"></span>
   <span class="spacer"></span>
+  <button class="btn ghost sm" id="soundToggle" type="button" aria-label="배경음악 켜기/끄기">🔊 음악</button>
 </div>
 <div id="app" class="wrap"><div class="loading">불러오는 중…</div></div>
+
+<audio id="bgmAudio" src="/assets/audio/bgm.mp3" preload="auto" loop></audio>
+<script>
+  (() => {
+    const audio = document.getElementById('bgmAudio');
+    const btn = document.getElementById('soundToggle');
+    let muted = false;
+    try { muted = localStorage.getItem('musicMuted') === '1'; } catch (e) {}
+    const paint = () => {
+      btn.textContent = muted ? '🔇 음악' : '🔊 음악';
+      btn.setAttribute('aria-label', muted ? '배경음악 켜기' : '배경음악 끄기');
+    };
+    paint();
+    const tryPlay = () => {
+      if (muted) return;
+      audio.play().catch(() => {
+        const retry = () => { audio.play().catch(() => {}); document.removeEventListener('click', retry); };
+        document.addEventListener('click', retry, { once: true });
+      });
+    };
+    tryPlay();
+    btn.onclick = () => {
+      muted = !muted;
+      try { localStorage.setItem('musicMuted', muted ? '1' : '0'); } catch (e) {}
+      paint();
+      if (muted) audio.pause(); else tryPlay();
+    };
+  })();
+</script>
 <script type="module" src="/js/teacher.js"></script>
 </body>
 </html>
