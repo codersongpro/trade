@@ -12,7 +12,7 @@ import {
 import { getEvents, availableEvents, drawRandomEvent, eventCategory } from './events.js';
 import {
   fmtMoney, calcAssets, leaderboard, applyEventChanges, processTurn,
-  makeGuard, detectTampering, genRoomCode, genId, majorityNeeded,
+  makeGuard, detectTampering, genRoomCode, genId, majorityNeeded, EXPORT_PREMIUM,
 } from './game.js';
 import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort, regionWord, regionLabel, markScrollableTabs, marketWord } from './ui.js';
 
@@ -411,6 +411,21 @@ async function createRoom() {
   for (const [id, r] of Object.entries(resources)) {
     const price = Math.max(1, Math.round(r.basePrice * scale));
     res[id] = { ...r, basePrice: price, originalPrice: price };
+  }
+
+  // 시세를 아주 낮은 단위(1원·십원)까지 줄이면, 자원마다 따로 반올림하다가
+  // 재료값과 완성품 값이 우연히 같아져 "가공해도 이득이 없는" 경우가 생길 수 있다.
+  // 그래서 가공품·완제품은 재료값 대비 최소 마진(세계시장 웃돈과 같은 비율)을
+  // 보장하도록 필요할 때만 값을 끌어올린다. 원래 설계된 시세(만원 단위)에서는
+  // 이미 마진이 이보다 크므로 대부분 그대로 유지된다.
+  for (const tier of ['mid', 'final']) {
+    for (const rec of Object.values(recipes)) {
+      const out = res[rec.out];
+      if (!out || out.tier !== tier) continue;
+      const cost = Object.entries(rec.inputs).reduce((s, [id, q]) => s + (res[id]?.basePrice || 0) * q, 0) / (rec.outQty || 1);
+      const minPrice = Math.ceil(cost * (EXPORT_PREMIUM[tier] || 1.15));
+      if (out.basePrice < minPrice) { out.basePrice = minPrice; out.originalPrice = minPrice; }
+    }
   }
 
   let code;
