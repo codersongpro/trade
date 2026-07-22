@@ -10,11 +10,12 @@ import { ROLES } from './presets.js';
 import {
   fmtMoney, calcAssets, leaderboard, majorityNeeded, voteResult,
   validateTradeInput, projectedStock, genId,
-  isExportable, exportGain, EXPORT_PREMIUM, NEED_PREMIUM,
+  EXPORT_PREMIUM, NEED_PREMIUM,
+  marketBuyPrice, marketSellPrice, LOAN_INTEREST, loanCap,
 } from './game.js';
 import {
   esc, resourceCard, statTile, crest, meter, emptyState, podium,
-  countUp, toast, fmtShort, regionLabel,
+  countUp, toast, fmtShort, regionLabel, markScrollableTabs,
 } from './ui.js';
 
 const app = document.getElementById('app');
@@ -317,6 +318,7 @@ function renderGame() {
   const closeBtn = document.getElementById('closeBanner');
   if (closeBtn) closeBtn.onclick = () => { seenEvent = latest.ts; render(); };
   app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; render(); });
+  markScrollableTabs(app.querySelector('.tabs'));
 
   const body = document.getElementById('tabBody');
   const fns = { mine: tabMine, trade: tabTrade, craft: tabCraft, world: tabWorld, market: tabMarket, chat: tabChat, rank: tabRank };
@@ -335,6 +337,15 @@ function tabMine(el) {
 
   const needs = (n.needs || []).filter((id) => room.resources[id]);
   const pct = Math.round((NEED_PREMIUM - 1) * 100);
+
+  const debt = n.debt || 0;
+  const cap = loanCap(room.meta.startingMoney);
+  const myLoans = Object.entries(room.loans || {})
+    .filter(([, l]) => l.status === 'queued' && l.nation === myNation)
+    .sort(([, a], [, b]) => (b.queuedAt || 0) - (a.queuedAt || 0));
+  const pendingBorrow = myLoans.filter(([, l]) => l.kind === 'borrow').reduce((s, [, l]) => s + l.amount, 0);
+  const pendingRepay = myLoans.filter(([, l]) => l.kind === 'repay').reduce((s, [, l]) => s + l.amount, 0);
+  const borrowRoom = Math.max(0, cap - debt - pendingBorrow + pendingRepay);
 
   el.innerHTML = `
   <div class="card">
@@ -366,6 +377,28 @@ function tabMine(el) {
   </div>
 
   <div class="card">
+    <div class="card-head"><h3>🏦 세계 은행</h3>
+      ${debt ? `<span class="badge bad">빚 ${fmtMoney(debt)}</span>` : '<span class="badge good">빚 없음</span>'}</div>
+    <p class="small muted">돈이 부족하면 세계 은행에서 빌릴 수 있어요. 갚을 때는 <b>이자 ${Math.round(LOAN_INTEREST * 100)}%</b>가 더 붙어요.
+    한도는 시작 자금만큼(${fmtMoney(cap)})이에요. 대출·상환도 <b>다음 턴 진행 때</b> 처리됩니다.</p>
+    ${myLoans.length ? `<div style="margin-bottom:10px">${myLoans.map(([lid, l]) => `
+      <div class="item ${l.kind === 'repay' ? 'ok' : ''}"><div class="item-head">
+        <div class="small">${l.kind === 'borrow' ? '🏦 대출 예약' : '💵 상환 예약'} ${fmtMoney(l.amount)}</div>
+        <button class="ghost sm" data-loancancel="${lid}">취소</button>
+      </div></div>`).join('')}</div>` : ''}
+    <div class="row" style="align-items:flex-end">
+      <div class="field"><label>빌릴 금액 (남은 한도 ${fmtShort(borrowRoom)}원)</label>
+        <input type="number" id="borrowAmt" min="0" step="10000" max="${borrowRoom}" placeholder="100000"></div>
+      <button class="sm" id="borrowBtn" ${borrowRoom > 0 ? '' : 'disabled'}>🏦 대출 신청</button>
+    </div>
+    <div class="row" style="align-items:flex-end;margin-top:8px">
+      <div class="field"><label>갚을 금액 (현재 빚 ${fmtShort(debt)}원)</label>
+        <input type="number" id="repayAmt" min="0" step="10000" max="${n.money || 0}" placeholder="50000"></div>
+      <button class="sm success" id="repayBtn" ${debt > 0 ? '' : 'disabled'}>💵 상환 신청</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-head"><h3>👥 우리 모둠</h3>
       <span class="badge">${teamSize()}명</span></div>
     ${Object.entries(myMembers()).map(([pid, p]) => {
@@ -381,6 +414,29 @@ function tabMine(el) {
       </div>`;
     }).join('')}
   </div>`;
+
+  el.querySelector('#borrowBtn')?.addEventListener('click', async () => {
+    const amt = Math.max(0, parseInt(document.getElementById('borrowAmt').value) || 0);
+    if (amt <= 0) return toast('빌릴 금액을 입력하세요', 'bad');
+    if (amt > borrowRoom) return toast(`한도를 넘었어요 (남은 한도 ${fmtMoney(borrowRoom)})`, 'bad');
+    const lid = genId('l_');
+    await updatePath(roomCode, 'loans', {
+      [lid]: { nation: myNation, amount: amt, kind: 'borrow', status: 'queued', by: me, byName: myName(), queuedAt: Date.now() },
+    });
+    toast('🏦 대출 신청! 다음 턴에 입금돼요', 'good');
+  });
+  el.querySelector('#repayBtn')?.addEventListener('click', async () => {
+    const amt = Math.max(0, parseInt(document.getElementById('repayAmt').value) || 0);
+    if (amt <= 0) return toast('갚을 금액을 입력하세요', 'bad');
+    const lid = genId('l_');
+    await updatePath(roomCode, 'loans', {
+      [lid]: { nation: myNation, amount: amt, kind: 'repay', status: 'queued', by: me, byName: myName(), queuedAt: Date.now() },
+    });
+    toast('💵 상환 신청! 다음 턴에 처리돼요', 'good');
+  });
+  el.querySelectorAll('[data-loancancel]').forEach((b) => b.onclick = async () => {
+    await removePath(roomCode, `loans/${b.dataset.loancancel}`);
+  });
 }
 
 // ---- 무역 ----
@@ -588,13 +644,8 @@ function bindTradeActions(el) {
 
 // ---- 제작 ----
 function tabCraft(el) {
-  const n = room.nations[myNation];
   const recipes = Object.entries(room.recipes || {});
   const queued = Object.entries(room.crafts || {}).filter(([, c]) => c.status === 'queued' && c.nation === myNation);
-  // 수출: 지금 보유한 가공품·완제품
-  const exportable = Object.entries(n.stock || {}).filter(([r, q]) => q > 0 && isExportable(rInfo(r)));
-  const queuedExports = Object.entries(room.exports || {}).filter(([, x]) => x.status === 'queued' && x.nation === myNation);
-  const exQueuedQty = (rid) => queuedExports.filter(([, x]) => x.resId === rid).reduce((s, [, x]) => s + (x.qty || 0), 0);
   const doneRecent = Object.entries(room.crafts || {}).filter(([, c]) => c.status !== 'queued' && c.nation === myNation)
     .sort(([, a], [, b]) => (b.queuedAt || 0) - (a.queuedAt || 0)).slice(0, 5);
 
@@ -610,8 +661,10 @@ function tabCraft(el) {
     <p class="small muted">자원을 조합하면 훨씬 비싼 물건이 됩니다! 예약해 두면 <b>턴이 진행될 때</b> 만들어져요.</p>
     <div class="banner info small" style="margin-bottom:0">
       아래 <b>괄호 안 숫자</b>는 이번 턴이 끝났을 때 갖게 될 양이에요.
-      턴은 <b>①거래 체결 → ②특산품 생산 → ③제작</b> 순서로 진행되니,
-      ${incoming ? '<b>지금 사기로 합의한 재료</b>와 ' : ''}이번 턴에 생산될 특산품까지 미리 계산해서 예약할 수 있어요.
+      턴은 <b>①대출 → ②거래 체결 → ③특산품 생산 → ④세계시장 구매 → ⑤제작 → ⑥세계시장 판매</b> 순서로 진행되니,
+      ${incoming ? '<b>지금 사기로 합의한 재료</b>와 ' : ''}이번 턴에 생산될 특산품, 그리고 <b>세계시장 구매 예약</b>까지 미리 계산해서 예약할 수 있어요.
+      모둠원끼리 동시에 예약해도 안전해요 — 이 화면은 <b>다른 모둠원이 방금 예약한 것까지 실시간으로 반영</b>해서 보여주니,
+      재료가 이미 다른 사람이 쓰기로 한 만큼 빠진 상태로 계산돼요. 재료가 부족하면 예약 버튼이 자동으로 꺼져요.
     </div>
   </div>
 
@@ -648,7 +701,9 @@ function tabCraft(el) {
           <div style="margin:8px 0 6px">
             ${Object.entries(rec.inputs).map(([r, q]) => {
               const ok = avail(r) >= q;
-              return `<span class="ing ${ok ? 'ok' : 'lack'}">${ok ? '✔' : '✕'} ${rInfo(r).emoji}${esc(rInfo(r).name)} ${q}<span class="tiny">(${avail(r)})</span></span>`;
+              const short = Math.max(0, q - avail(r));
+              return `<span class="ing ${ok ? 'ok' : 'lack'}">${ok ? '✔' : '✕'} ${rInfo(r).emoji}${esc(rInfo(r).name)} ${q}<span class="tiny">(${avail(r)})</span>
+                ${!ok ? `<button class="sm ghost" data-quickbuy="${r}" data-shortqty="${short}" style="margin-left:4px;padding:0 6px">🛒${short}개 사기</button>` : ''}</span>`;
             }).join('')}
             <span class="recipe-arrow">→</span>
             <span class="ing" style="background:var(--gold-soft);border-color:#f0dca4">${out.emoji}${esc(out.name)}</span>
@@ -665,30 +720,10 @@ function tabCraft(el) {
   </div>
 
   <div class="card">
-    <div class="card-head"><h3>🚢 세계시장 수출</h3>
-      <span class="badge gold">시세보다 웃돈!</span></div>
-    <p class="small muted">가공품·완제품을 세계시장에 팔면 시세보다 <b>웃돈</b>을 받아 현금이 됩니다.
-    <b>가공할수록 이득</b>이 커져요! (예약하면 턴이 진행될 때 팔려요)</p>
-    ${queuedExports.length ? `<div style="margin-bottom:10px">${queuedExports.map(([xid, x]) => `
-      <div class="item ok"><div class="item-head">
-        <div class="small"><b>🚢 ${rInfo(x.resId).emoji} ${esc(rInfo(x.resId).name)} ×${x.qty}</b>
-          <span class="up">→ ${fmtMoney(exportGain(rInfo(x.resId), x.qty))}</span></div>
-        <button class="ghost sm" data-unexport="${xid}">취소</button>
-      </div></div>`).join('')}</div>` : ''}
-    ${exportable.length ? exportable.map(([r, q]) => {
-      const avail = q - exQueuedQty(r);
-      const prem = Math.round(((EXPORT_PREMIUM[rInfo(r).tier] || 1) - 1) * 100);
-      return `<div class="item"><div class="item-head">
-        <div><b>${rInfo(r).emoji} ${esc(rInfo(r).name)}</b>
-          <span class="badge gold">수출가 ${fmtMoney(exportGain(rInfo(r), 1))}/개 (+${prem}%)</span>
-          <div class="tiny muted">보유 ${q}개 · 시세 ${fmtMoney(rInfo(r).basePrice)}</div></div>
-        <div class="row" style="max-width:190px;align-items:center">
-          <input type="number" min="1" max="${Math.max(1, avail)}" value="${Math.max(1, avail)}"
-                 data-exqty="${r}" style="max-width:66px" aria-label="수출 개수" ${avail < 1 ? 'disabled' : ''}>
-          <button class="sm success" data-export="${r}" ${avail < 1 ? 'disabled' : ''}>수출 예약</button>
-        </div>
-      </div></div>`;
-    }).join('') : '<p class="tiny muted">아직 수출할 가공품·완제품이 없어요. 위에서 만들어 보세요!</p>'}
+    <div class="card-head"><h3>🌍 재료가 모자라거나, 다 만든 물건을 팔고 싶다면?</h3></div>
+    <p class="small muted">재료가 부족한 칸에 뜨는 <b>🛒 사기</b> 버튼으로 바로 세계시장에서 살 수 있어요.
+    다 만든 가공품·완제품을 팔 때는 시세보다 <b>웃돈</b>을 받아요 — <b>📈 시세</b> 탭의 세계 무역시장에서 한번에 사고팔 수 있어요.</p>
+    <button class="sm" data-goto-market>📈 세계 무역시장으로 이동</button>
   </div>
 
   ${doneRecent.length ? `<div class="card"><h3>📜 지난 제작</h3>
@@ -712,18 +747,10 @@ function tabCraft(el) {
   el.querySelectorAll('[data-uncraft]').forEach((b) => b.onclick = async () => {
     await removePath(roomCode, `crafts/${b.dataset.uncraft}`);
   });
-  el.querySelectorAll('[data-export]').forEach((b) => b.onclick = async () => {
-    const rid = b.dataset.export;
-    const qty = Math.max(1, parseInt(el.querySelector(`[data-exqty="${rid}"]`).value) || 1);
-    const xid = genId('x_');
-    await updatePath(roomCode, 'exports', {
-      [xid]: { nation: myNation, resId: rid, qty, status: 'queued', by: me, byName: myName(), queuedAt: Date.now() },
-    });
-    toast('🚢 수출 예약! 턴이 진행되면 현금이 들어와요', 'good');
+  el.querySelectorAll('[data-quickbuy]').forEach((b) => b.onclick = async () => {
+    await queueMarketOrder(b.dataset.quickbuy, Math.max(1, parseInt(b.dataset.shortqty) || 1), 'buy');
   });
-  el.querySelectorAll('[data-unexport]').forEach((b) => b.onclick = async () => {
-    await removePath(roomCode, `exports/${b.dataset.unexport}`);
-  });
+  el.querySelector('[data-goto-market]')?.addEventListener('click', () => { tab = 'market'; render(); });
 }
 
 // ---- 다른 나라 ----
@@ -759,27 +786,78 @@ function tabWorld(el) {
 function tabMarket(el) {
   const tierName = { raw: '🌾 원자재 (특산품)', mid: '🔧 1차 가공품', final: '✨ 완제품' };
   const n = room.nations[myNation];
-  el.innerHTML = ['raw', 'mid', 'final'].map((tier) => {
+  const myOrders = Object.entries(room.market_orders || {})
+    .filter(([, x]) => x.status === 'queued' && x.nation === myNation)
+    .sort(([, a], [, b]) => (b.queuedAt || 0) - (a.queuedAt || 0));
+
+  const marketTable = ['raw', 'mid', 'final'].map((tier) => {
     const items = Object.entries(room.resources || {}).filter(([, r]) => r.tier === tier);
     if (!items.length) return '';
-    return `<div class="card"><h3>${tierName[tier]}</h3>
-      <div class="table-scroll"><table>
-        <thead><tr><th>자원</th><th class="num">현재 시세</th><th class="num">처음 대비</th><th class="num">우리 보유</th></tr></thead>
+    return `<div class="table-scroll" style="margin-top:${tier === 'raw' ? '0' : '16px'}">
+      <table>
+        <thead><tr><th>${tierName[tier]}</th><th class="num">살 때</th><th class="num">팔 때</th><th class="num">보유</th><th>수량 · 주문</th></tr></thead>
         <tbody>${items.sort((a, b) => b[1].basePrice - a[1].basePrice).map(([id, r]) => {
-          const diff = r.basePrice / (r.originalPrice || r.basePrice);
           const have = n.stock?.[id] || 0;
+          const buyPrice = marketBuyPrice(room.resources, room.market, id);
+          const sellPrice = marketSellPrice(room.resources, room.market, id);
+          const premium = EXPORT_PREMIUM[r.tier];
           return `<tr>
             <td>${r.emoji} ${esc(r.name)} <span class="tiny muted">/${esc(r.unit)}</span></td>
-            <td class="num"><b>${fmtMoney(r.basePrice)}</b></td>
-            <td class="num ${diff > 1.01 ? 'up' : diff < 0.99 ? 'down' : 'muted'}">${diff === 1 ? '-' : `${diff > 1 ? '▲' : '▼'}${Math.abs(Math.round((diff - 1) * 100))}%`}</td>
+            <td class="num">${fmtMoney(buyPrice)}</td>
+            <td class="num">${fmtMoney(sellPrice)}${premium ? ` <span class="tiny up">가공+${Math.round((premium - 1) * 100)}%</span>` : ''}</td>
             <td class="num ${have ? '' : 'muted'}">${have}</td>
+            <td>
+              <div class="row" style="gap:4px;min-width:170px">
+                <input type="number" min="1" value="1" data-mqty="${id}" style="max-width:56px" aria-label="${esc(r.name)} 수량">
+                <button class="sm" data-mbuy="${id}">🛒 사기</button>
+                <button class="sm ghost" data-msell="${id}" ${have ? '' : 'disabled'}>💰 팔기</button>
+              </div>
+            </td>
           </tr>`;
         }).join('')}</tbody>
-      </table></div></div>`;
-  }).join('') + `<div class="card"><h3>📢 지금까지의 세계 소식</h3>
+      </table></div>`;
+  }).join('');
+
+  el.innerHTML = `
+  <div class="card">
+    <div class="card-head"><h3>🌍 세계 무역시장</h3><span class="badge gold">언제든 즉시 거래</span></div>
+    <p class="small muted">다른 ${regionLabel(room.meta)}와 협상할 필요 없이 세계시장에서 바로 사고팔 수 있어요.
+    <b>한 자원을 계속 사면 값이 오르고, 계속 팔면 값이 내려가요</b> — 그러니 세계시장만 쓰기보다,
+    직접 협상하는 게 더 유리할 때가 많아요. 가공품·완제품은 팔 때 웃돈이 붙어요.
+    주문은 <b>다음 턴 진행 때</b> 순서대로 처리됩니다.</p>
+    ${myOrders.length ? `<div style="margin:12px 0">${myOrders.map(([oid, x]) => `
+      <div class="item ${x.kind === 'buy' ? '' : 'ok'}"><div class="item-head">
+        <div class="small">${x.kind === 'buy' ? '🛒 구매 예약' : '💰 판매 예약'} ${rInfo(x.resId).emoji} ${esc(rInfo(x.resId).name)} ${x.qty}개</div>
+        <button class="ghost sm" data-mcancel="${oid}">취소</button>
+      </div></div>`).join('')}</div>` : ''}
+    ${marketTable}
+  </div>
+
+  <div class="card">
+    <h3>📢 지금까지의 세계 소식</h3>
     ${Object.entries(room.events || {}).sort(([, a], [, b]) => (b.ts || 0) - (a.ts || 0)).map(([, e]) =>
       `<div class="item"><b>${e.rare ? '✨ ' : ''}${esc(e.title)}</b> <span class="badge">${e.turn}턴</span>
-       <div class="tiny muted">${esc(e.desc)}</div></div>`).join('') || '<p class="muted small">아직 이벤트가 없어요.</p>'}</div>`;
+       <div class="tiny muted">${esc(e.desc)}</div></div>`).join('') || '<p class="muted small">아직 이벤트가 없어요.</p>'}
+  </div>`;
+
+  bindMarketActions(el);
+}
+
+function bindMarketActions(el) {
+  const qtyOf = (resId) => Math.max(1, parseInt(el.querySelector(`[data-mqty="${resId}"]`)?.value) || 1);
+  el.querySelectorAll('[data-mbuy]').forEach((b) => b.onclick = () => queueMarketOrder(b.dataset.mbuy, qtyOf(b.dataset.mbuy), 'buy'));
+  el.querySelectorAll('[data-msell]').forEach((b) => b.onclick = () => queueMarketOrder(b.dataset.msell, qtyOf(b.dataset.msell), 'sell'));
+  el.querySelectorAll('[data-mcancel]').forEach((b) => b.onclick = async () => {
+    await removePath(roomCode, `market_orders/${b.dataset.mcancel}`);
+  });
+}
+
+async function queueMarketOrder(resId, qty, kind) {
+  const oid = genId('m_');
+  await updatePath(roomCode, 'market_orders', {
+    [oid]: { nation: myNation, resId, qty, kind, status: 'queued', by: me, byName: myName(), queuedAt: Date.now() },
+  });
+  toast(kind === 'buy' ? `🛒 구매 예약! 다음 턴에 처리돼요` : `💰 판매 예약! 다음 턴에 처리돼요`, 'good');
 }
 
 // ---- 회의 ----

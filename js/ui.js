@@ -6,6 +6,23 @@
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// ---------- 탭 가로 스크롤 힌트 ----------
+// 좁은 화면에서 탭이 넘치면(예: 시/군/구 방의 여러 탭) 스크롤 가능함을
+// 양쪽 옅은 그림자로 보여주고, 활성 탭은 항상 보이는 위치로 스크롤한다.
+export function markScrollableTabs(tabsEl) {
+  if (!tabsEl) return;
+  const update = () => {
+    const overflowing = tabsEl.scrollWidth > tabsEl.clientWidth + 1;
+    tabsEl.classList.toggle('scrollable', overflowing);
+    tabsEl.classList.toggle('at-start', tabsEl.scrollLeft <= 1);
+    tabsEl.classList.toggle('at-end', tabsEl.scrollLeft + tabsEl.clientWidth >= tabsEl.scrollWidth - 1);
+  };
+  update();
+  tabsEl.addEventListener('scroll', update, { passive: true });
+  const active = tabsEl.querySelector('button.active');
+  active?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+}
+
 // ---------- 자원 등급 ----------
 // 원자재 → 가공품 → 완제품으로 갈수록 희귀한 카드처럼 보이게 한다
 

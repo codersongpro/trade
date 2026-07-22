@@ -14,7 +14,7 @@ import {
   fmtMoney, calcAssets, leaderboard, applyEventChanges, processTurn,
   makeGuard, detectTampering, genRoomCode, genId, majorityNeeded,
 } from './game.js';
-import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort, regionWord, regionLabel } from './ui.js';
+import { esc, resourceCard, statTile, crest, podium, emptyState, toast, fmtShort, regionWord, regionLabel, markScrollableTabs } from './ui.js';
 
 const app = document.getElementById('app');
 const tbInfo = document.getElementById('tbInfo');
@@ -378,6 +378,7 @@ async function createRoom() {
     const nation = {
       name: n.name, emoji: n.emoji,
       money: wiz.settings.startingMoney,
+      debt: 0, // 세계 은행에 진 빚
       production: n.production,
       needs: (n.needs || []).filter((id) => res[id]), // 방에 있는 자원만 (난이도 호환)
       stock: Object.fromEntries(Object.keys(res).map((r) => [r, 0])),
@@ -581,6 +582,7 @@ function renderDashboard() {
   </div>`;
 
   app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; render(); });
+  markScrollableTabs(app.querySelector('.tabs'));
   document.getElementById('nextTurn').onclick = advanceTurn;
 
   const fixBtn = document.getElementById('fixTamper');
@@ -621,6 +623,7 @@ function tabNations(el) {
       <div class="row" style="margin-bottom:10px">
         ${statTile({ icon: '💰', label: '현금', value: fmtShort(n.money || 0) + '원', tone: 'gold' })}
         ${statTile({ icon: '📊', label: '총자산', value: fmtShort(calcAssets(n, resources)) + '원' })}
+        ${n.debt ? statTile({ icon: '🏦', label: '은행 빚', value: fmtShort(n.debt) + '원', tone: 'bad' }) : ''}
       </div>
       <div class="tiny muted">턴당 생산: ${Object.entries(n.production || {}).map(([r, q]) => `${resources[r]?.emoji || ''}${esc(resources[r]?.name || r)} ${q}`).join(', ')}</div>
       <div class="grid grid-4" style="gap:7px;margin-top:11px">
@@ -682,18 +685,23 @@ function tabEvents(el) {
   </div>` : ''}
 
   <div class="card">
-    <h3>카드 목록에서 직접 고르기</h3>
-    <div class="event-list" style="margin-top:10px">
+    <div class="card-head"><h3>카드 목록에서 직접 고르기</h3>
+      <span class="tiny muted">${all.length}개 중 검색</span></div>
+    <input id="evSearch" placeholder="🔍 카드 이름·내용·자원으로 검색 (예: 가뭄, 반도체, 유가)" style="margin-top:2px" autocomplete="off">
+    <div class="event-list" id="evList" style="margin-top:10px">
       ${all.map((e) => {
         const ok = availIds.has(e.id);
         const effects = Object.entries(e.changes).filter(([r]) => resIds.includes(r))
           .map(([r, mul]) => `<span class="${mul > 1 ? 'up' : 'down'}">${room.resources[r].emoji}${mul > 1 ? '▲' : '▼'}${Math.round(Math.abs(mul - 1) * 100)}%</span>`).join(' ');
-        return `<button class="event-card ${e.rare ? 'rare' : ''}" data-ev="${e.id}" ${ok ? '' : 'disabled'}>
+        const resNames = Object.keys(e.changes).map((r) => room.resources[r]?.name || '').join(' ');
+        const searchKey = `${e.title} ${e.desc} ${resNames}`.toLowerCase();
+        return `<button class="event-card ${e.rare ? 'rare' : ''}" data-ev="${e.id}" data-search="${esc(searchKey)}" ${ok ? '' : 'disabled'}>
           <div style="font-weight:800">${e.rare ? '✨ ' : ''}${esc(e.title)} ${used.includes(e.id) ? '<span class="badge">사용함</span>' : ''}</div>
           <div class="tiny muted" style="margin:3px 0">${esc(e.desc)}</div>
           <div class="tiny">${effects || '<span class="muted">이 방에 해당 자원 없음</span>'}</div>
         </button>`;
       }).join('')}
+      <p class="tiny muted center" id="evNoMatch" style="display:none;padding:14px 0">검색 결과가 없어요.</p>
     </div>
   </div>`;
 
@@ -706,6 +714,20 @@ function tabEvents(el) {
     const ev = all.find((e) => e.id === b.dataset.ev);
     if (ev) fireEvent(ev);
   });
+
+  const searchInput = document.getElementById('evSearch');
+  const cards = [...el.querySelectorAll('[data-search]')];
+  const noMatch = document.getElementById('evNoMatch');
+  searchInput.oninput = () => {
+    const q = searchInput.value.trim().toLowerCase();
+    let visible = 0;
+    cards.forEach((c) => {
+      const match = !q || c.dataset.search.includes(q);
+      c.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    noMatch.style.display = visible === 0 ? '' : 'none';
+  };
 }
 
 function tabMarket(el) {
@@ -863,8 +885,9 @@ async function advanceTurn() {
   const m = room.meta;
   const accepted = Object.values(room.trades || {}).filter((t) => t.status === 'accepted').length;
   const queued = Object.values(room.crafts || {}).filter((c) => c.status === 'queued').length;
-  const exq = Object.values(room.exports || {}).filter((x) => x.status === 'queued').length;
-  if (!confirm(`${m.turn}턴을 진행할까요?\n\n· 합의된 거래 ${accepted}건이 체결됩니다\n· 모든 ${regionLabel(m)}가 특산품을 생산합니다${Object.keys(room.recipes || {}).length ? `\n· 예약된 제작 ${queued}건이 실행됩니다` : ''}${exq ? `\n· 세계시장 수출 ${exq}건이 처리됩니다` : ''}\n\n되돌릴 수 없어요.`)) return;
+  const marketQueued = Object.values(room.market_orders || {}).filter((x) => x.status === 'queued').length;
+  const loanQueued = Object.values(room.loans || {}).filter((l) => l.status === 'queued').length;
+  if (!confirm(`${m.turn}턴을 진행할까요?\n\n· 대출·상환 ${loanQueued}건이 처리됩니다\n· 합의된 거래 ${accepted}건이 체결됩니다\n· 모든 ${regionLabel(m)}가 특산품을 생산합니다\n· 세계시장 매매 ${marketQueued}건이 처리됩니다${Object.keys(room.recipes || {}).length ? `\n· 예약된 제작 ${queued}건이 실행됩니다` : ''}\n\n되돌릴 수 없어요.`)) return;
 
   busy = true;
   render();
@@ -873,6 +896,7 @@ async function advanceTurn() {
     const updates = {};
     for (const [nid, n] of Object.entries(result.nations)) {
       updates[`nations/${nid}/money`] = n.money;
+      updates[`nations/${nid}/debt`] = n.debt || 0;
       updates[`nations/${nid}/stock`] = n.stock || {};
       updates[`nations/${nid}/guard`] = makeGuard(n);
     }
@@ -884,10 +908,15 @@ async function advanceTurn() {
       updates[`crafts/${cid}/status`] = s.status;
       if (s.failReason) updates[`crafts/${cid}/failReason`] = s.failReason;
     }
-    for (const [xid, s] of Object.entries(result.exportStatus || {})) {
-      updates[`exports/${xid}/status`] = s.status;
-      if (s.failReason) updates[`exports/${xid}/failReason`] = s.failReason;
+    for (const [xid, s] of Object.entries(result.marketStatus)) {
+      updates[`market_orders/${xid}/status`] = s.status;
+      if (s.failReason) updates[`market_orders/${xid}/failReason`] = s.failReason;
     }
+    for (const [lid, s] of Object.entries(result.loanStatus)) {
+      updates[`loans/${lid}/status`] = s.status;
+      if (s.failReason) updates[`loans/${lid}/failReason`] = s.failReason;
+    }
+    updates['market'] = result.market || {};
     // 미합의 상태로 남은 제안은 만료 처리
     for (const [tid, t] of Object.entries(room.trades || {})) {
       if (t.status === 'draft' || t.status === 'proposed') updates[`trades/${tid}/status`] = 'expired';
