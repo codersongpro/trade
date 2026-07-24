@@ -594,7 +594,7 @@ function renderDashboard() {
       ${t.resources.map((r) => ` · ${resources[r.id]?.emoji || ''}${esc(resources[r.id]?.name || r.id)} <span class="up">${r.diff > 0 ? '+' : ''}${r.diff}</span>`).join('')}
     </div>`).join('')}
   </div>` : ''}
-  <div class="grid grid-2" style="grid-template-columns: 1fr 320px; align-items:start">
+  <div class="dash-grid">
     <div>
       <div class="card">
         <div class="card-head">
@@ -684,9 +684,9 @@ function tabNations(el) {
         <span class="badge ${mem.length ? 'brand' : ''}">${mem.length}명</span>
       </div>
       <div class="row" style="margin-bottom:10px">
-        ${statTile({ icon: '💰', label: '현금', value: fmtShort(n.money || 0) + '원', tone: 'gold' })}
-        ${statTile({ icon: '📊', label: '총자산', value: fmtShort(calcAssets(n, resources)) + '원' })}
-        ${n.debt ? statTile({ icon: '🏦', label: '은행 빚', value: fmtShort(n.debt) + '원', tone: 'bad' }) : ''}
+        ${statTile({ icon: '💰', label: '현금', value: fmtShort(n.money || 0) + '원', tone: 'gold', variant: 'sub' })}
+        ${statTile({ icon: '📊', label: '총자산', value: fmtShort(calcAssets(n, resources)) + '원', variant: 'hero' })}
+        ${n.debt ? statTile({ icon: '🏦', label: '은행 빚', value: fmtShort(n.debt) + '원', tone: 'bad', variant: 'sub' }) : ''}
       </div>
       <div class="tiny muted">턴당 생산: ${Object.entries(n.production || {}).map(([r, q]) => `${resources[r]?.emoji || ''}${esc(resources[r]?.name || r)} ${q}`).join(', ')}</div>
       <div class="grid grid-4" style="gap:7px;margin-top:11px">
