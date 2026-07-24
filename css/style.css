@@ -6,6 +6,8 @@
    ============================================================ */
 
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css');
+/* 제목용 디스플레이 폰트 — 포스터 같은 한글 볼드체. 게임다운 에너지 + 프로젝터 원거리 가독성 */
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap');
 
 :root {
   /* 바다 (화면 바탕) */
@@ -23,7 +25,7 @@
   /* 잉크 (글자) */
   --ink: #1b2540;
   --ink-2: #4a5570;
-  --muted: #7c86a0;
+  --muted: #626d8a;
 
   /* 강조 */
   --gold: #f0b429;
@@ -54,6 +56,7 @@
 
   --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
           'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-display: 'Black Han Sans', 'Pretendard Variable', Pretendard, system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -76,7 +79,8 @@ body {
   min-height: 100vh;
 }
 
-h1, h2, h3, h4 { margin: 0 0 .5em; line-height: 1.28; letter-spacing: -.025em; font-weight: 800; }
+h1, h2, h3, h4 { margin: 0 0 .5em; line-height: 1.28; letter-spacing: -.01em; font-weight: 800; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0; }
 h1 { font-size: 1.8rem; }
 h2 { font-size: 1.3rem; }
 h3 { font-size: 1.05rem; }
@@ -138,9 +142,9 @@ button.shine::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .5) 50%, transparent 65%);
   transform: translateX(-120%);
-  animation: shine 3.4s ease-in-out infinite;
+  animation: shine 6s ease-in-out infinite;
 }
-@keyframes shine { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+@keyframes shine { 0%, 82% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
 
 /* ============================================================
    입력
@@ -194,6 +198,10 @@ label { display: block; font-size: .82rem; font-weight: 700; color: var(--ink-2)
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .grid-4 { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+/* 교사 대시보드: 넓은 화면은 본문+사이드, 태블릿 이하는 단일 컬럼으로 붕괴 */
+.dash-grid { display: grid; gap: 14px; grid-template-columns: 1fr 320px; align-items: start; }
+.dash-grid > div > .card:first-child h2 { font-size: 1.55rem; }
+@media (max-width: 1000px) { .dash-grid { grid-template-columns: 1fr; } }
 
 /* ============================================================
    상단 바
@@ -307,8 +315,15 @@ label { display: block; font-size: .82rem; font-weight: 700; color: var(--ink-2)
 .stat-icon { font-size: 1.3rem; flex-shrink: 0; }
 .stat-text { display: flex; flex-direction: column; min-width: 0; }
 .stat-label { font-size: .74rem; font-weight: 700; color: var(--muted); }
-.stat-value { font-size: 1.16rem; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
+.stat-value { font-size: 1.16rem; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: .74rem; color: var(--muted); }
+/* 히어로 타일 — 총자산처럼 "이 화면에서 가장 중요한 숫자" 하나에만 */
+.stat-tile.is-hero { padding: 12px 16px; }
+.stat-tile.is-hero .stat-icon { font-size: 1.6rem; }
+.stat-tile.is-hero .stat-value { font-size: 1.75rem; }
+.stat-tile.is-hero .stat-label { font-size: .8rem; }
+/* 보조 타일 — 현금·빚 등 참고 수치는 한 단계 낮춘다 */
+.stat-tile.is-sub .stat-value { font-size: 1rem; font-weight: 700; }
 .stat-tile.tone-gold { background: var(--gold-soft); border-color: #f0dca4; }
 .stat-tile.tone-gold .stat-value { color: var(--gold-deep); }
 .stat-tile.tone-good { background: var(--good-soft); border-color: #b6e7d1; }
@@ -565,8 +580,8 @@ label { display: block; font-size: .82rem; font-weight: 700; color: var(--ink-2)
 .rank-row:nth-child(1) .rank-no { color: var(--gold-deep); font-size: 1.2rem; }
 .rank-row:nth-child(2) .rank-no { color: #97a1b5; }
 .rank-row:nth-child(3) .rank-no { color: #c08457; }
-.rank-name { flex: 1; font-weight: 700; min-width: 0; }
-.rank-val { font-weight: 800; font-variant-numeric: tabular-nums; }
+.rank-name { flex: 1; font-weight: 700; min-width: 0; font-size: 1rem; }
+.rank-val { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 1.06rem; }
 .rank-row.is-me { background: var(--brand-soft); box-shadow: inset 0 0 0 1.5px #c3d5ff; }
 
 .podium { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin: 6px 0 4px; }
@@ -576,7 +591,7 @@ label { display: block; font-size: .82rem; font-weight: 700; color: var(--ink-2)
   filter: drop-shadow(0 3px 6px rgba(217, 158, 11, .5)); animation: bob 3.5s ease-in-out infinite; }
 .result-trophy { width: 120px; height: 120px; object-fit: contain;
   filter: drop-shadow(0 6px 14px rgba(217, 158, 11, .55)); animation: bob 3.5s ease-in-out infinite; }
-@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .podium-name { font-weight: 800; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .podium-val { font-size: .76rem; color: var(--muted); margin-bottom: 6px; }
 .podium-block {
@@ -872,6 +887,10 @@ tr.is-me { background: var(--brand-soft) !important; font-weight: 700; }
   h1 { font-size: 1.5rem; }
   .my-bar { padding: 13px 14px; }
   .my-bar .name { font-size: 1.2rem; }
+  .my-bar .row { gap: 10px; }
+  .my-bar .stat-tile { flex: 1 1 42%; min-width: 0; }
+  .my-bar .stat-tile.is-hero { flex-basis: 100%; }
+  .my-bar .stat-value { white-space: normal; }
   .tabs button { padding: 8px 11px; font-size: .86rem; }
   .grid-4 { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .podium-col { max-width: 100px; }

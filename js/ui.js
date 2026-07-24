@@ -127,9 +127,10 @@ export function crest(nation, opts = {}) {
 }
 
 // ---------- 요약 타일 ----------
-// tone: 'gold' | 'good' | 'bad' | 'plain'
-export function statTile({ icon, label, value, sub, tone = 'plain', id }) {
-  return `<div class="stat-tile tone-${tone}">
+// tone: 'gold' | 'good' | 'bad' | 'plain'  ·  variant: 'hero' | 'sub' | undefined
+export function statTile({ icon, label, value, sub, tone = 'plain', id, variant }) {
+  const vcls = variant === 'hero' ? ' is-hero' : variant === 'sub' ? ' is-sub' : '';
+  return `<div class="stat-tile tone-${tone}${vcls}">
     ${icon ? `<span class="stat-icon">${icon}</span>` : ''}
     <span class="stat-text">
       <span class="stat-label">${esc(label)}</span>

@@ -292,8 +292,8 @@ function renderGame() {
           ${room.meta.teamApproval ? ` · 결정에 <b>${needVotes()}명</b> 찬성 필요` : ''}</div>
         </div>
       </div>
-      ${statTile({ icon: '💰', label: '보유 현금', value: fmtMoney(n.money || 0), tone: 'gold', id: 'hudMoney' })}
-      ${statTile({ icon: '📊', label: '총자산', value: fmtMoney(assets), sub: `${board.length}개 ${regionLabel(room.meta)} 중 ${myRank}등`, id: 'hudAssets' })}
+      ${statTile({ icon: '💰', label: '보유 현금', value: fmtMoney(n.money || 0), tone: 'gold', variant: 'sub', id: 'hudMoney' })}
+      ${statTile({ icon: '📊', label: '총자산', value: fmtMoney(assets), sub: `${board.length}개 ${regionLabel(room.meta)} 중 ${myRank}등`, variant: 'hero', id: 'hudAssets' })}
     </div>
   </div>
 
