@@ -247,7 +247,6 @@
   function closeIntro() {
     introEl.hidden = true;
     introAudio.pause(); introAudio.currentTime = 0;
-    try { localStorage.setItem('introSeen', '1'); } catch (e) {}
   }
   function openIntro() { idx = 0; paintSlide(); introEl.hidden = false; tryPlayIntroAudio(); }
 
@@ -256,10 +255,7 @@
   document.getElementById('introSkip').onclick = closeIntro;
   document.getElementById('replayIntro').onclick = openIntro;
 
-  // 처음 방문한 사람에게만 자동으로 인트로를 띄운다
-  let seen = false;
-  try { seen = localStorage.getItem('introSeen') === '1'; } catch (e) {}
-  if (!seen) openIntro();
+  openIntro();
 </script>
 </body>
 </html>
