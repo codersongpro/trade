@@ -194,6 +194,18 @@
   }
 
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  /* ---------- 인쇄용 ---------- */
+  @media print {
+    .quicknav, .sound-fab { display: none; }
+    body { background: #fff; color: #000; }
+    .wrap { max-width: 100%; }
+    a { color: #000; text-decoration: underline; }
+    .hero-frame, .plate-frame, .tip-card { box-shadow: none; border: 1px solid #999; }
+    .callout, .step-note { background: #fff; border: 1px solid #999; }
+    section.track, .step, .plates, .tip-card { break-inside: avoid; }
+    .step { border-top-color: #ccc; }
+  }
 </style>
 
 <header class="hero">
