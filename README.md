@@ -110,13 +110,23 @@ python -m http.server 8000
 ```json
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "rooms": {
+      "$code": {
+        ".read": "$code.length === 6",
+        ".write": "$code.length === 6"
+      }
+    },
+    "roomIndex": {
+      "$code": {
+        ".read": "$code.length === 6",
+        ".write": "$code.length === 6"
+      }
+    }
   }
 }
 ```
 
-> 🔒 **보안 안내**: 이 규칙은 주소를 아는 누구나 데이터를 읽고 쓸 수 있습니다. 수업용 게임이고 개인정보(학생 이름 외)를 저장하지 않으므로 실용적인 선택이지만, 민감한 정보는 절대 넣지 마세요. 수업이 끝나면 교사 화면의 **방 삭제**로 데이터를 지울 수 있습니다.
+> 🔒 **보안 안내**: 이 게임은 로그인이 없어서 "6자리 코드를 아는 사람만 그 방에 접근 가능"이 보안의 전부입니다. 위 규칙은 그 전제를 지키면서, 루트(`/`)를 통째로 읽거나 써서 **전체 데이터베이스를 한 번에 조회·삭제하는 것**만은 막아둔 형태입니다 (`"rooms": { ".read": true, ".write": true }`처럼 더 단순하게 열어도 동작은 같지만, 그 경우 누구나 `/`를 읽어 다른 반의 방 코드까지 통째로 알아낼 수 있습니다). 개인정보(학생 이름 외)는 저장하지 않지만, 민감한 정보는 절대 넣지 마세요. 수업이 끝나면 교사 화면의 **방 삭제**로 데이터를 지울 수 있습니다.
 
 ---
 
@@ -252,6 +262,18 @@ Firebase 무료 요금제(Spark)는 [동시 접속 100명](https://firebase.goog
 | 시작 자금·기본 턴 수 | `js/presets.js` 의 `DEFAULT_SETTINGS` |
 | 화면 색상·글꼴 | `css/style.css` 맨 위 `:root` (색·모서리·그림자를 한곳에서 관리) |
 | 자원 카드·순위 시상대 등 공용 부품 | `js/ui.js` |
+
+### 사용 매뉴얼(`docs/manual.html`) 고치기
+매뉴얼은 `docs/manual-template.html`에서 만들어집니다. **`docs/manual.html`을 직접 고치지 마세요** — 빌드할 때 덮어씌워집니다.
+
+1. 스크린샷을 바꾸려면 `docs/assets/manual/`의 같은 이름 파일(예: `teacher_01_mode.webp`)을 교체합니다.
+2. 글이나 레이아웃을 바꾸려면 `docs/manual-template.html`을 고칩니다.
+3. 아래 명령으로 `docs/manual.html`을 다시 만듭니다.
+   ```bash
+   node scripts/build-manual.js
+   ```
+4. (선택) 스크린샷 개수가 바뀌는 등 레이아웃을 건드렸다면, `npm install playwright`로 한 번 설치해 두고
+   `node scripts/check-manual-plates.js`로 화면 폭별로 플레이트가 고르게 배치됐는지 확인할 수 있습니다.
 
 ### 그림(에셋)을 더 넣고 싶다면
 지금은 이모지와 CSS만으로 화면을 그리고 있습니다. 직접 만든 그림을 넣으면 훨씬 풍성해집니다.
