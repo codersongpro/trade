@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": "auth != null && $code.matches(/^[A-Z0-9]{6}$/)",
+        ".write": "auth != null && $code.matches(/^[A-Z0-9]{6}$/)"
+      }
+    },
+    "roomIndex": {
+      "$day": {
+        ".read": "auth != null && $day.matches(/^[0-9]{5}$/) && $day < '' + ((now - 172800000) / 86400000)",
+        "$code": {
+          ".write": "auth != null && $day.matches(/^[0-9]{5}$/) && $code.matches(/^[A-Z0-9]{6}$/)",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    }
+  }
+}

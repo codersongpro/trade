@@ -88,7 +88,21 @@ export async function readAny(path) {
   if (path === 'roomIndex') return clone(M.roomIndex || null);
   return null;
 }
+// 날짜 묶음 방 목록 (db.js와 같은 모양: roomIndex/{일수}/{방코드})
+export const dayKey = (ms) => String(Math.floor(ms / 86400000));
+export async function indexRoom(code, createdAt) {
+  const d = dayKey(createdAt);
+  M.roomIndex ||= {};
+  (M.roomIndex[d] ||= {})[code] = createdAt;
+}
+export async function readIndexedRooms(fromDay, toDay) {
+  return Object.entries(M.roomIndex || {})
+    .filter(([d]) => Number(d) >= fromDay && Number(d) <= toDay)
+    .flatMap(([d, codes]) => Object.keys(codes).map((code) => [d, code]));
+}
 export async function writeAny(path, value) {
+  const i = path.match(/^roomIndex\/(\d+)\/(.+)$/);
+  if (i && value === null) { delete M.roomIndex?.[i[1]]?.[i[2]]; return; }
   const m = path.match(/^roomIndex\/(.+)$/);
   if (m) { M.roomIndex ||= {}; if (value === null) delete M.roomIndex[m[1]]; else M.roomIndex[m[1]] = clone(value); return; }
   const r = path.match(/^rooms\/([^/]+)$/);

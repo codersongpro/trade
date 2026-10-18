@@ -4,7 +4,7 @@
 
 import {
   initDb, readPath, watch, writePath, updatePath, multiUpdate, pushTo,
-  roomExists, readAny, writeAny, saveTeacher, loadTeacher, clearTeacher,
+  roomExists, readIndexedRooms, indexRoom, dayKey, writeAny, saveTeacher, loadTeacher, clearTeacher,
 } from './db.js';
 import {
   getPreset, filterByDifficulty, DIFFICULTIES, SCALES, DEFAULT_SETTINGS, ROLES, MONEY_UNIT_PRESETS, priceScaleFor,
@@ -37,17 +37,13 @@ async function boot() {
   }
 }
 
-// 만든 지 3일 지난 방을 지운다. 목록만 훑으므로 데이터 사용량이 거의 없다.
-const ROOM_TTL = 3 * 24 * 60 * 60 * 1000;
+// 만든 지 3일 지난 방을 지운다. 지난 30일치 날짜 묶음만 훑으므로 데이터 사용량이 거의 없다.
 async function cleanupOldRooms() {
   try {
-    const index = await readAny('roomIndex');
-    if (!index) return;
-    const now = Date.now();
-    for (const [code, info] of Object.entries(index)) {
-      if (now - (info?.createdAt || 0) < ROOM_TTL) continue;
+    const today = Number(dayKey(Date.now()));
+    for (const [day, code] of await readIndexedRooms(today - 30, today - 3)) {
       await writeAny(`rooms/${code}`, null);
-      await writeAny(`roomIndex/${code}`, null);
+      await writeAny(`roomIndex/${day}/${code}`, null);
     }
   } catch (err) {
     console.warn('오래된 방 정리를 건너뜁니다:', err.message);
@@ -466,7 +462,7 @@ async function createRoom() {
     nations,
     usedEvents: {},
   });
-  await writeAny(`roomIndex/${code}`, { createdAt: Date.now() });
+  await indexRoom(code, Date.now());
   saveTeacher({ code, token });
   roomCode = code;
   subscribe();
